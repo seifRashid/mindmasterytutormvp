@@ -13,6 +13,19 @@ import { relations } from "drizzle-orm";
 
 // Enums
 export const roleEnum = pgEnum("user_role", ["student", "teacher", "admin"]);
+export const questionTypeEnum = pgEnum("question_type", [
+  "multiple_choice",
+  "true_false",
+  "short_answer",
+]);
+export const attachmentTypeEnum = pgEnum("attachment_type", [
+  "pdf",
+  "doc",
+  "image",
+  "link",
+  "presentation",
+  "other",
+]);
 
 // 1. Users Table
 export const users = pgTable(
@@ -33,7 +46,7 @@ export const users = pgTable(
   })
 );
 
-// 2. Classes Table (Grade 8, Grade 9, Advanced STEM, etc.)
+// 2. Classes Table
 export const classes = pgTable(
   "classes",
   {
@@ -47,7 +60,7 @@ export const classes = pgTable(
   })
 );
 
-// 3. Subjects Table (Mathematics, Biology, Physics, Computer Science)
+// 3. Subjects Table
 export const subjects = pgTable(
   "subjects",
   {
@@ -67,7 +80,7 @@ export const subjects = pgTable(
   })
 );
 
-// 4. Topics Table (Algebra, Cell Biology, Data Structures)
+// 4. Topics Table
 export const topics = pgTable(
   "topics",
   {
@@ -87,7 +100,7 @@ export const topics = pgTable(
   })
 );
 
-// 5. Lessons Table (Video Lessons)
+// 5. Lessons Table — enhanced with rich content and attachment support
 export const lessons = pgTable(
   "lessons",
   {
@@ -97,9 +110,11 @@ export const lessons = pgTable(
       .references(() => topics.id, { onDelete: "cascade" }),
     title: varchar("title", { length: 255 }).notNull(),
     description: text("description"),
-    videoUrl: text("video_url").notNull(),
-    duration: integer("duration").default(0).notNull(), // in seconds
+    richContent: text("rich_content"),          // Markdown lesson notes
+    videoUrl: text("video_url"),                // Optional — may be notes-only
+    duration: integer("duration").default(0).notNull(),
     orderNumber: integer("order_number").default(1).notNull(),
+    lessonQuizId: uuid("lesson_quiz_id"),       // FK set after quiz creation
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => ({
@@ -107,24 +122,45 @@ export const lessons = pgTable(
   })
 );
 
-// 6. Quizzes Table
+// 6. Lesson Attachments Table
+export const lessonAttachments = pgTable(
+  "lesson_attachments",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    lessonId: uuid("lesson_id")
+      .notNull()
+      .references(() => lessons.id, { onDelete: "cascade" }),
+    name: varchar("name", { length: 255 }).notNull(),
+    url: text("url").notNull(),
+    fileType: attachmentTypeEnum("file_type").default("other").notNull(),
+    orderNumber: integer("order_number").default(1).notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    lessonIdx: index("lesson_attachments_lesson_idx").on(table.lessonId),
+  })
+);
+
+// 7. Quizzes Table — can belong to a topic OR a lesson
 export const quizzes = pgTable(
   "quizzes",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    topicId: uuid("topic_id")
-      .notNull()
-      .references(() => topics.id, { onDelete: "cascade" }),
+    topicId: uuid("topic_id").references(() => topics.id, { onDelete: "cascade" }),
+    lessonId: uuid("lesson_id").references(() => lessons.id, { onDelete: "cascade" }),
     title: varchar("title", { length: 255 }).notNull(),
-    passingScore: integer("passing_score").default(70).notNull(), // percentage
+    passingScore: integer("passing_score").default(70).notNull(),
+    timeLimitMinutes: integer("time_limit_minutes").default(0).notNull(), // 0 = no limit
+    showFeedback: boolean("show_feedback").default(true).notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => ({
     topicIdx: index("quizzes_topic_idx").on(table.topicId),
+    lessonIdx: index("quizzes_lesson_idx").on(table.lessonId),
   })
 );
 
-// 7. Questions Table
+// 8. Questions Table — supports MCQ, True/False, Short Answer
 export const questions = pgTable(
   "questions",
   {
@@ -132,8 +168,9 @@ export const questions = pgTable(
     quizId: uuid("quiz_id")
       .notNull()
       .references(() => quizzes.id, { onDelete: "cascade" }),
+    type: questionTypeEnum("type").default("multiple_choice").notNull(),
     question: text("question").notNull(),
-    explanation: text("explanation").notNull(), // Detailed explanation revealed after 3 failed attempts
+    explanation: text("explanation").notNull(),
     orderNumber: integer("order_number").default(1).notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
@@ -142,7 +179,7 @@ export const questions = pgTable(
   })
 );
 
-// 8. Answers Table
+// 9. Answers Table
 export const answers = pgTable(
   "answers",
   {
@@ -159,7 +196,7 @@ export const answers = pgTable(
   })
 );
 
-// 9. Quiz Attempts Table
+// 10. Quiz Attempts Table
 export const quizAttempts = pgTable(
   "quiz_attempts",
   {
@@ -170,7 +207,7 @@ export const quizAttempts = pgTable(
     quizId: uuid("quiz_id")
       .notNull()
       .references(() => quizzes.id, { onDelete: "cascade" }),
-    score: integer("score").notNull(), // 0 to 100
+    score: integer("score").notNull(),
     failedAttempts: integer("failed_attempts").default(0).notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
@@ -179,7 +216,7 @@ export const quizAttempts = pgTable(
   })
 );
 
-// 10. Lesson Progress Table
+// 11. Lesson Progress Table
 export const lessonProgress = pgTable(
   "lesson_progress",
   {
@@ -202,7 +239,8 @@ export const lessonProgress = pgTable(
   })
 );
 
-// RELATIONS DEFINITIONS
+// ─── RELATIONS ───────────────────────────────────────────────────────────────
+
 export const usersRelations = relations(users, ({ many }) => ({
   quizAttempts: many(quizAttempts),
   lessonProgress: many(lessonProgress),
@@ -213,72 +251,49 @@ export const classesRelations = relations(classes, ({ many }) => ({
 }));
 
 export const subjectsRelations = relations(subjects, ({ one, many }) => ({
-  class: one(classes, {
-    fields: [subjects.classId],
-    references: [classes.id],
-  }),
+  class: one(classes, { fields: [subjects.classId], references: [classes.id] }),
   topics: many(topics),
 }));
 
 export const topicsRelations = relations(topics, ({ one, many }) => ({
-  subject: one(subjects, {
-    fields: [topics.subjectId],
-    references: [subjects.id],
-  }),
+  subject: one(subjects, { fields: [topics.subjectId], references: [subjects.id] }),
   lessons: many(lessons),
   quizzes: many(quizzes),
 }));
 
 export const lessonsRelations = relations(lessons, ({ one, many }) => ({
-  topic: one(topics, {
-    fields: [lessons.topicId],
-    references: [topics.id],
-  }),
+  topic: one(topics, { fields: [lessons.topicId], references: [topics.id] }),
   progress: many(lessonProgress),
+  attachments: many(lessonAttachments),
+  quiz: many(quizzes),
+}));
+
+export const lessonAttachmentsRelations = relations(lessonAttachments, ({ one }) => ({
+  lesson: one(lessons, { fields: [lessonAttachments.lessonId], references: [lessons.id] }),
 }));
 
 export const quizzesRelations = relations(quizzes, ({ one, many }) => ({
-  topic: one(topics, {
-    fields: [quizzes.topicId],
-    references: [topics.id],
-  }),
+  topic: one(topics, { fields: [quizzes.topicId], references: [topics.id] }),
+  lesson: one(lessons, { fields: [quizzes.lessonId], references: [lessons.id] }),
   questions: many(questions),
   attempts: many(quizAttempts),
 }));
 
 export const questionsRelations = relations(questions, ({ one, many }) => ({
-  quiz: one(quizzes, {
-    fields: [questions.quizId],
-    references: [quizzes.id],
-  }),
+  quiz: one(quizzes, { fields: [questions.quizId], references: [quizzes.id] }),
   answers: many(answers),
 }));
 
 export const answersRelations = relations(answers, ({ one }) => ({
-  question: one(questions, {
-    fields: [answers.questionId],
-    references: [questions.id],
-  }),
+  question: one(questions, { fields: [answers.questionId], references: [questions.id] }),
 }));
 
 export const quizAttemptsRelations = relations(quizAttempts, ({ one }) => ({
-  user: one(users, {
-    fields: [quizAttempts.userId],
-    references: [users.id],
-  }),
-  quiz: one(quizzes, {
-    fields: [quizAttempts.quizId],
-    references: [quizzes.id],
-  }),
+  user: one(users, { fields: [quizAttempts.userId], references: [users.id] }),
+  quiz: one(quizzes, { fields: [quizAttempts.quizId], references: [quizzes.id] }),
 }));
 
 export const lessonProgressRelations = relations(lessonProgress, ({ one }) => ({
-  user: one(users, {
-    fields: [lessonProgress.userId],
-    references: [users.id],
-  }),
-  lesson: one(lessons, {
-    fields: [lessonProgress.lessonId],
-    references: [lessons.id],
-  }),
+  user: one(users, { fields: [lessonProgress.userId], references: [users.id] }),
+  lesson: one(lessons, { fields: [lessonProgress.lessonId], references: [lessons.id] }),
 }));
