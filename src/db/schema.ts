@@ -13,6 +13,7 @@ import { relations } from "drizzle-orm";
 
 // Enums
 export const roleEnum = pgEnum("user_role", ["student", "teacher", "admin"]);
+export const userStatusEnum = pgEnum("user_status", ["pending", "approved", "rejected"]);
 export const questionTypeEnum = pgEnum("question_type", [
   "multiple_choice",
   "true_false",
@@ -36,6 +37,16 @@ export const users = pgTable(
     email: varchar("email", { length: 255 }).notNull().unique(),
     password: text("password").notNull(),
     role: roleEnum("role").default("student").notNull(),
+    status: userStatusEnum("status").default("pending").notNull(),
+    phone: varchar("phone", { length: 50 }),
+    age: integer("age"),
+    gender: varchar("gender", { length: 20 }),
+    classId: uuid("class_id").references(() => classes.id, { onDelete: "set null" }),
+    parentName: varchar("parent_name", { length: 255 }),
+    parentPhone: varchar("parent_phone", { length: 50 }),
+    parentEmail: varchar("parent_email", { length: 255 }),
+    notes: text("notes"),
+    rejectionReason: text("rejection_reason"),
     image: text("image"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -43,6 +54,8 @@ export const users = pgTable(
   (table) => ({
     emailIdx: index("users_email_idx").on(table.email),
     roleIdx: index("users_role_idx").on(table.role),
+    statusIdx: index("users_status_idx").on(table.status),
+    classIdIdx: index("users_class_id_idx").on(table.classId),
   })
 );
 
@@ -241,13 +254,15 @@ export const lessonProgress = pgTable(
 
 // ─── RELATIONS ───────────────────────────────────────────────────────────────
 
-export const usersRelations = relations(users, ({ many }) => ({
+export const usersRelations = relations(users, ({ one, many }) => ({
+  class: one(classes, { fields: [users.classId], references: [classes.id] }),
   quizAttempts: many(quizAttempts),
   lessonProgress: many(lessonProgress),
 }));
 
 export const classesRelations = relations(classes, ({ many }) => ({
   subjects: many(subjects),
+  students: many(users),
 }));
 
 export const subjectsRelations = relations(subjects, ({ one, many }) => ({

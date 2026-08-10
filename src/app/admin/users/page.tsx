@@ -1,11 +1,12 @@
 import { Navbar } from "@/components/layout/Navbar";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { getSession } from "@/lib/auth";
-import { INITIAL_USERS } from "@/lib/mock-data";
+import { getUsers } from "@/lib/user-store";
 import { Users, Shield, GraduationCap, Sparkles, Trash2 } from "lucide-react";
 
 export default async function AdminUsersPage() {
   const session = await getSession();
+  const dbUsers = await getUsers();
 
   return (
     <div className="min-h-screen bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-white flex flex-col">
@@ -36,7 +37,7 @@ export default async function AdminUsersPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {INITIAL_USERS.map((usr) => (
+                {dbUsers.map((usr) => (
                   <tr key={usr.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-850">
                     <td className="p-4 font-bold text-slate-900 dark:text-white flex items-center gap-3">
                       <div className="w-7 h-7 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-xs">

@@ -1,9 +1,21 @@
+export type UserStatus = "pending" | "approved" | "rejected";
+
 export interface User {
   id: string;
   name: string;
   email: string;
   password?: string;
   role: "student" | "teacher" | "admin";
+  phone?: string;
+  age?: number;
+  gender?: "male" | "female" | "other";
+  classId?: string;
+  parentName?: string;
+  parentPhone?: string;
+  parentEmail?: string;
+  notes?: string;
+  status?: UserStatus;
+  rejectionReason?: string;
   image?: string;
   createdAt: string;
 }
@@ -117,6 +129,7 @@ export const INITIAL_USERS: User[] = [
     email: "admin@mindmastery.edu",
     password: "admin123",
     role: "admin",
+    status: "approved",
     createdAt: new Date().toISOString(),
   },
   {
@@ -125,6 +138,7 @@ export const INITIAL_USERS: User[] = [
     email: "teacher@mindmastery.edu",
     password: "teacher123",
     role: "teacher",
+    status: "approved",
     createdAt: new Date().toISOString(),
   },
   {
@@ -133,7 +147,66 @@ export const INITIAL_USERS: User[] = [
     email: "student@mindmastery.edu",
     password: "student123",
     role: "student",
+    status: "approved",
+    phone: "+1 (555) 234-5678",
+    age: 14,
+    gender: "male",
+    classId: "class-1",
+    parentName: "Robert Kim",
+    parentPhone: "+1 (555) 987-6543",
+    parentEmail: "robert.kim@example.com",
+    notes: "Interested in STEM competitions",
     createdAt: new Date().toISOString(),
+  },
+  {
+    id: "user-student-2",
+    name: "Samantha Wright",
+    email: "samantha.w@example.com",
+    password: "student123",
+    role: "student",
+    status: "pending",
+    phone: "+1 (555) 345-6789",
+    age: 15,
+    gender: "female",
+    classId: "class-2",
+    parentName: "Eleanor Wright",
+    parentPhone: "+1 (555) 876-5432",
+    parentEmail: "eleanor.w@example.com",
+    notes: "Transferred from Lincoln High School",
+    createdAt: new Date(Date.now() - 3600000 * 2).toISOString(), // 2 hours ago
+  },
+  {
+    id: "user-student-3",
+    name: "Marcus Johnson",
+    email: "marcus.j@example.com",
+    password: "student123",
+    role: "student",
+    status: "pending",
+    phone: "+1 (555) 456-7890",
+    age: 16,
+    gender: "male",
+    classId: "class-3",
+    parentName: "Angela Johnson",
+    parentPhone: "+1 (555) 765-4321",
+    parentEmail: "angela.j@example.com",
+    notes: "Enrolling for Python & Data Structures",
+    createdAt: new Date(Date.now() - 3600000 * 24).toISOString(), // 1 day ago
+  },
+  {
+    id: "user-student-4",
+    name: "Jessica Patel",
+    email: "jessica.p@example.com",
+    password: "student123",
+    role: "student",
+    status: "rejected",
+    rejectionReason: "Incomplete parent contact information provided.",
+    phone: "+1 (555) 567-8901",
+    age: 14,
+    gender: "female",
+    classId: "class-1",
+    parentName: "Dev Patel",
+    parentPhone: "000-0000",
+    createdAt: new Date(Date.now() - 3600000 * 48).toISOString(),
   },
 ];
 

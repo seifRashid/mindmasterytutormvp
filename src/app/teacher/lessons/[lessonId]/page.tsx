@@ -14,7 +14,7 @@ import {
   INITIAL_CLASSES,
 } from "@/lib/mock-data";
 
-export default async function AdminLessonBuilderPage({
+export default async function TeacherLessonBuilderPage({
   params,
 }: {
   params: Promise<{ lessonId: string }>;
@@ -39,12 +39,12 @@ export default async function AdminLessonBuilderPage({
       <Navbar user={session} />
 
       <div className="flex-1 flex max-w-7xl w-full mx-auto overflow-x-hidden">
-        <Sidebar role="admin" />
+        <Sidebar role="teacher" />
 
         <main className="flex-1 min-w-0 p-4 md:p-8 space-y-6 overflow-y-auto">
           {/* Breadcrumb */}
           <div className="flex flex-wrap items-center gap-1.5 text-xs font-semibold text-slate-500">
-            <Link href="/admin/lessons" className="flex items-center gap-1 hover:text-blue-600 transition-colors">
+            <Link href="/teacher/lessons" className="flex items-center gap-1 hover:text-indigo-600 transition-colors">
               <ArrowLeft className="w-3.5 h-3.5" />
               All Lessons
             </Link>

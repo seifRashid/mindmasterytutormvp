@@ -32,6 +32,7 @@ interface LessonBuilderProps {
   lesson: Lesson;
   quiz?: Quiz;
   questions?: Question[];
+  topics?: { id: string; title: string }[];
   onSave?: (data: Partial<Lesson>) => void;
 }
 
@@ -259,12 +260,13 @@ function QuestionCard({
   );
 }
 
-export function LessonBuilder({ lesson, quiz, questions: initialQuestions }: LessonBuilderProps) {
+export function LessonBuilder({ lesson, quiz, questions: initialQuestions, topics }: LessonBuilderProps) {
   const [activeTab, setActiveTab] = useState<Tab>("content");
   const [saved, setSaved] = useState(false);
 
   // Content tab state
   const [title, setTitle] = useState(lesson.title);
+  const [topicId, setTopicId] = useState(lesson.topicId);
   const [description, setDescription] = useState(lesson.description);
   const [richContent, setRichContent] = useState(lesson.richContent ?? "");
 
@@ -407,6 +409,22 @@ export function LessonBuilder({ lesson, quiz, questions: initialQuestions }: Les
                 className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
               />
             </div>
+            {topics && topics.length > 0 && (
+              <div>
+                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wider">
+                  Target Topic *
+                </label>
+                <select
+                  value={topicId}
+                  onChange={(e) => setTopicId(e.target.value)}
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                >
+                  {topics.map((t) => (
+                    <option key={t.id} value={t.id}>{t.title}</option>
+                  ))}
+                </select>
+              </div>
+            )}
             <div>
               <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wider">
                 Short Description

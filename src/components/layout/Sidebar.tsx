@@ -51,6 +51,7 @@ export function Sidebar({ role }: SidebarProps) {
 
   const adminLinks = [
     { label: "Admin Overview", href: "/admin", icon: LayoutDashboard },
+    { label: "Student Approvals", href: "/admin/approvals", icon: Users },
     { label: "Classes", href: "/admin/classes", icon: Layers },
     { label: "Subjects", href: "/admin/subjects", icon: BookOpen },
     { label: "Topics", href: "/admin/topics", icon: FolderTree },
@@ -61,6 +62,7 @@ export function Sidebar({ role }: SidebarProps) {
 
   const teacherLinks = [
     { label: "Teacher Portal", href: "/teacher", icon: LayoutDashboard },
+    { label: "Student Approvals", href: "/teacher/approvals", icon: Users },
     { label: "Manage Lessons", href: "/teacher/lessons", icon: Video },
     { label: "Manage Quizzes", href: "/teacher/quizzes", icon: HelpCircle },
   ];

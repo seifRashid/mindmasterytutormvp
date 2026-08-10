@@ -11,11 +11,22 @@ import {
 } from "lucide-react";
 import { Navbar } from "@/components/layout/Navbar";
 import { Sidebar } from "@/components/layout/Sidebar";
+import { redirect } from "next/navigation";
+import { findUserById } from "@/lib/user-store";
 import { getSession } from "@/lib/auth";
-import { INITIAL_LESSONS, INITIAL_SUBJECTS, INITIAL_TOPICS } from "@/lib/mock-data";
+import { INITIAL_SUBJECTS, INITIAL_LESSONS, INITIAL_TOPICS } from "@/lib/mock-data";
 
 export default async function StudentDashboardPage() {
   const session = await getSession();
+
+  // Guard: if student account is pending or rejected, redirect to approval status page
+  const currentUser = session ? await findUserById(session.id) : null;
+  const status = currentUser?.status || session?.status || "approved";
+
+  if (status === "pending" || status === "rejected") {
+    redirect("/pending-approval");
+  }
+
   const activeSubject = INITIAL_SUBJECTS[0];
   const activeLesson = INITIAL_LESSONS[0];
 

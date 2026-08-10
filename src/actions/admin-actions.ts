@@ -128,6 +128,7 @@ export async function createQuizAction(formData: FormData) {
     topicId,
     title,
     passingScore,
+    showFeedback: true,
     createdAt: new Date().toISOString(),
   };
 
@@ -139,6 +140,7 @@ export async function createQuizAction(formData: FormData) {
   const newQuestion: Question = {
     id: questionId,
     quizId,
+    type: "multiple_choice",
     question: questionText,
     explanation: explanation || "Carefully review the lesson video to understand the core concept.",
     orderNumber: 1,

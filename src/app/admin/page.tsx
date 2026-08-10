@@ -21,11 +21,12 @@ import {
   INITIAL_QUIZZES,
   INITIAL_SUBJECTS,
   INITIAL_TOPICS,
-  INITIAL_USERS,
 } from "@/lib/mock-data";
+import { getUsers } from "@/lib/user-store";
 
 export default async function AdminDashboardPage() {
   const session = await getSession();
+  const dbUsers = await getUsers();
 
   return (
     <div className="min-h-screen bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-white flex flex-col">
@@ -132,7 +133,7 @@ export default async function AdminDashboardPage() {
                 <Users className="w-5 h-5 text-rose-600 dark:text-rose-400" />
                 <ArrowUpRight className="w-4 h-4 text-slate-400 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
               </div>
-              <p className="text-xl font-bold text-slate-900 dark:text-white">{INITIAL_USERS.length}</p>
+              <p className="text-xl font-bold text-slate-900 dark:text-white">{dbUsers.length}</p>
               <p className="text-[11px] text-slate-500 font-medium">User Accounts</p>
             </Link>
           </div>

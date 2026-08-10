@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
-import { INITIAL_USERS, User } from "./mock-data";
+import { User } from "./mock-data";
+import { findUserById } from "./user-store";
 
 const COOKIE_NAME = "mindmastery_session";
 
@@ -8,6 +9,9 @@ export interface SessionData {
   name: string;
   email: string;
   role: "student" | "teacher" | "admin";
+  status?: "pending" | "approved" | "rejected";
+  classId?: string;
+  rejectionReason?: string;
   image?: string;
 }
 
@@ -16,19 +20,28 @@ export async function getSession(): Promise<SessionData | null> {
   const sessionCookie = cookieStore.get(COOKIE_NAME);
 
   if (!sessionCookie || !sessionCookie.value) {
-    // Default fallback to student session for immediate preview convenience
-    return {
-      id: "user-student-1",
-      name: "David Kim",
-      email: "student@mindmastery.edu",
-      role: "student",
-      image: "https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?w=150&auto=format&fit=crop&q=80",
-    };
+    return null;
   }
 
   try {
     const data = JSON.parse(decodeURIComponent(sessionCookie.value)) as SessionData;
-    return data;
+    
+    // Fetch fresh user data from database to reflect any status or role changes
+    const dbUser = await findUserById(data.id);
+    if (!dbUser) {
+      return null;
+    }
+
+    return {
+      id: dbUser.id,
+      name: dbUser.name,
+      email: dbUser.email,
+      role: dbUser.role,
+      status: dbUser.status ?? "approved",
+      classId: dbUser.classId,
+      rejectionReason: dbUser.rejectionReason,
+      image: dbUser.image,
+    };
   } catch {
     return null;
   }
@@ -41,6 +54,9 @@ export async function setSession(user: User): Promise<void> {
     name: user.name,
     email: user.email,
     role: user.role,
+    status: user.status ?? "approved",
+    classId: user.classId,
+    rejectionReason: user.rejectionReason,
     image: user.image,
   };
 
