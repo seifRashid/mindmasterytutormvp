@@ -1,9 +1,11 @@
 import { Navbar } from "@/components/layout/Navbar";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { CrudModal } from "@/components/admin/CrudModal";
+import { EditClassModal } from "@/components/admin/EditClassModal";
+import { DeleteClassModal } from "@/components/admin/DeleteClassModal";
 import { getSession } from "@/lib/auth";
 import { INITIAL_CLASSES } from "@/lib/mock-data";
-import { Layers, Trash2 } from "lucide-react";
+import { Layers } from "lucide-react";
 
 export default async function AdminClassesPage() {
   const session = await getSession();
@@ -47,10 +49,9 @@ export default async function AdminClassesPage() {
                     </td>
                     <td className="p-4 text-slate-500 font-mono">{cls.slug}</td>
                     <td className="p-4 text-slate-500">{new Date(cls.createdAt).toLocaleDateString()}</td>
-                    <td className="p-4 text-right">
-                      <button className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40">
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                    <td className="p-4 text-right flex items-center justify-end gap-1">
+                      <EditClassModal classLevel={cls} />
+                      <DeleteClassModal classLevel={cls} />
                     </td>
                   </tr>
                 ))}

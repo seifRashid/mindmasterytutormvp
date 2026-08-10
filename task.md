@@ -1,0 +1,36 @@
+- [x] Phase 1: Database Seeding Enhancements
+  - [x] Update `src/db/seed.ts` to fully seed subjects, topics, lessons, quizzes, questions, and answers
+  - [x] Execute `npx tsx src/db/seed.ts` to run the updated seed script
+- [x] Phase 2: Server Actions Updates
+  - [x] Update `createSubjectAction` in `src/actions/admin-actions.ts` to write to the database
+  - [x] Add `editSubjectAction` in `src/actions/admin-actions.ts` to handle subject updates
+  - [x] Update `deleteEntityAction` in `src/actions/admin-actions.ts` to delete from the database
+  - [x] Update `createClassAction` in `src/actions/admin-actions.ts` to write to the database
+  - [x] Add `editClassAction` in `src/actions/admin-actions.ts` to handle class updates
+  - [x] Update `deleteEntityAction` (class case) in `src/actions/admin-actions.ts` to delete from the database
+  - [x] Update `createTopicAction` in `src/actions/admin-actions.ts` to write to the database
+  - [x] Add `editTopicAction` in `src/actions/admin-actions.ts` to handle topic updates
+  - [x] Update `deleteEntityAction` (topic case) in `src/actions/admin-actions.ts` to delete from the database
+  - [x] Update `createQuizAction` in `src/actions/admin-actions.ts` to write to the database
+  - [x] Add `editQuizWithQuestionsAction` in `src/actions/admin-actions.ts` to handle quiz and question updates
+  - [x] Update `deleteEntityAction` (quiz case) in `src/actions/admin-actions.ts` to delete from the database (and cascade delete questions/answers)
+- [x] Phase 3: UI Components Implementation
+  - [x] Create `EditSubjectModal` in `src/components/admin/EditSubjectModal.tsx`
+  - [x] Create `DeleteSubjectModal` in `src/components/admin/DeleteSubjectModal.tsx`
+  - [x] Update Admin Subjects page `src/app/admin/subjects/page.tsx` to render the edit and delete modals
+  - [x] Create `EditClassModal` in `src/components/admin/EditClassModal.tsx`
+  - [x] Create `DeleteClassModal` in `src/components/admin/DeleteClassModal.tsx`
+  - [x] Update Admin Classes page `src/app/admin/classes/page.tsx` to render the edit and delete modals
+  - [x] Create `EditTopicModal` in `src/components/admin/EditTopicModal.tsx`
+  - [x] Create `DeleteTopicModal` in `src/components/admin/DeleteTopicModal.tsx`
+  - [x] Update Admin Topics page `src/app/admin/topics/page.tsx` to render the edit and delete modals
+  - [x] Create `EditQuizModal` in `src/components/admin/EditQuizModal.tsx`
+  - [x] Create `DeleteQuizModal` in `src/components/admin/DeleteQuizModal.tsx`
+  - [x] Update Admin Quizzes page `src/app/admin/quizzes/page.tsx` to render the edit and delete modals
+- [x] Phase 4: Authentication Security Guards (Proxy)
+  - [x] Create `src/proxy.ts` (Next.js 16 Proxy) to intercept routes `/admin`, `/teacher`, `/dashboard`, and `/pending-approval`
+  - [x] Redirect unauthenticated and unauthorized requests to `/login`
+- [x] Phase 5: Verification & Walkthrough
+  - [x] Run `npx tsc --noEmit` and `npm run build` to verify compilation
+  - [x] Manually verify authentication gate protection on `/admin`
+  - [x] Write progress summary to `walkthrough.md`

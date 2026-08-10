@@ -1,9 +1,11 @@
 import { Navbar } from "@/components/layout/Navbar";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { CrudModal } from "@/components/admin/CrudModal";
+import { EditTopicModal } from "@/components/admin/EditTopicModal";
+import { DeleteTopicModal } from "@/components/admin/DeleteTopicModal";
 import { getSession } from "@/lib/auth";
 import { INITIAL_SUBJECTS, INITIAL_TOPICS } from "@/lib/mock-data";
-import { FolderTree, Trash2 } from "lucide-react";
+import { FolderTree } from "lucide-react";
 
 export default async function AdminTopicsPage() {
   const session = await getSession();
@@ -52,10 +54,18 @@ export default async function AdminTopicsPage() {
                       </td>
                       <td className="p-4 text-slate-500 font-semibold">{parentSub?.title || "Math"}</td>
                       <td className="p-4 text-slate-500 font-mono"># {top.orderNumber}</td>
-                      <td className="p-4 text-right">
-                        <button className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40">
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                      <td className="p-4 text-right flex items-center justify-end gap-1">
+                        <EditTopicModal
+                          topic={{
+                            id: top.id,
+                            subjectId: top.subjectId,
+                            title: top.title,
+                            description: top.description || "",
+                            orderNumber: top.orderNumber,
+                          }}
+                          subjects={INITIAL_SUBJECTS.map((s) => ({ id: s.id, title: s.title }))}
+                        />
+                        <DeleteTopicModal topic={top} />
                       </td>
                     </tr>
                   );

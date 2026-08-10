@@ -1,9 +1,11 @@
 import { Navbar } from "@/components/layout/Navbar";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { CrudModal } from "@/components/admin/CrudModal";
+import { EditQuizModal } from "@/components/admin/EditQuizModal";
+import { DeleteQuizModal } from "@/components/admin/DeleteQuizModal";
 import { getSession } from "@/lib/auth";
 import { INITIAL_QUESTIONS, INITIAL_QUIZZES, INITIAL_TOPICS } from "@/lib/mock-data";
-import { HelpCircle, Trash2 } from "lucide-react";
+import { HelpCircle } from "lucide-react";
 
 export default async function AdminQuizzesPage() {
   const session = await getSession();
@@ -56,10 +58,16 @@ export default async function AdminQuizzesPage() {
                       <td className="p-4 text-slate-500 font-semibold">{parentTopic?.title || "Topic"}</td>
                       <td className="p-4 text-slate-500 font-bold">{quiz.passingScore}%</td>
                       <td className="p-4 text-slate-500 font-mono">{questions.length} Qs</td>
-                      <td className="p-4 text-right">
-                        <button className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40">
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                      <td className="p-4 text-right flex items-center justify-end gap-1">
+                        <EditQuizModal
+                          quiz={{
+                            id: quiz.id,
+                            title: quiz.title,
+                            passingScore: quiz.passingScore,
+                          }}
+                          initialQuestions={questions}
+                        />
+                        <DeleteQuizModal quiz={quiz} />
                       </td>
                     </tr>
                   );

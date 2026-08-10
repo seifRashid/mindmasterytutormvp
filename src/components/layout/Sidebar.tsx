@@ -55,7 +55,7 @@ export function Sidebar({ role }: SidebarProps) {
     { label: "Classes", href: "/admin/classes", icon: Layers },
     { label: "Subjects", href: "/admin/subjects", icon: BookOpen },
     { label: "Topics", href: "/admin/topics", icon: FolderTree },
-    { label: "Video Lessons", href: "/admin/lessons", icon: Video },
+    { label: "Lessons", href: "/admin/lessons", icon: Video },
     { label: "Quizzes", href: "/admin/quizzes", icon: HelpCircle },
     { label: "User Accounts", href: "/admin/users", icon: Users },
   ];
