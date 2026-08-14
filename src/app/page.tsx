@@ -34,7 +34,7 @@ export default async function HomePage() {
           </div>
 
           <h1 className="text-4xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight text-white max-w-4xl mx-auto leading-[1.1]">
-            Master Every Subject Step-by-Step with{" "}
+            Master Everyy Subject Step-by-Step with{" "}
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-cyan-400 to-indigo-400">
               Guided Mastery
             </span>
