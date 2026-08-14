@@ -39,7 +39,6 @@ export default async function HomePage() {
               Guided Mastery
             </span>
           </h1>
-<p>I am testing deployment from development to main</p>
           <p className="text-base sm:text-xl text-slate-400 max-w-2xl mx-auto font-normal leading-relaxed">
             Mind Mastery Tutor gives students a clear learning path through HD video lessons,
             interactive topic progression, and automated quizzes with step-by-step retry explanations.
