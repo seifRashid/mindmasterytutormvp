@@ -34,12 +34,15 @@ export default async function HomePage() {
           </div>
 
           <h1 className="text-4xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight text-white max-w-4xl mx-auto leading-[1.1]">
-            Master Everyy Subject Step-by-Step with{" "}
+            Master Every Subject Step-by-Step with{" "}
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-cyan-400 to-indigo-400">
               Guided Mastery
             </span>
           </h1>
+<<<<<<< HEAD
           <p>Testing developement branch deployment</p>
+=======
+>>>>>>> main
           <p className="text-base sm:text-xl text-slate-400 max-w-2xl mx-auto font-normal leading-relaxed">
             Mind Mastery Tutor gives students a clear learning path through HD video lessons,
             interactive topic progression, and automated quizzes with step-by-step retry explanations.
