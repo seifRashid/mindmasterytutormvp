@@ -5,6 +5,10 @@ import { Navbar } from "@/components/layout/Navbar";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { LessonViewer } from "@/components/student/LessonViewer";
 import { getSession } from "@/lib/auth";
+import { db } from "@/db";
+import { lessonProgress } from "@/db/schema";
+import { and, eq } from "drizzle-orm";
+import { toUuid } from "@/lib/id-mapper";
 import {
   INITIAL_LESSONS,
   INITIAL_QUIZZES,
@@ -21,6 +25,23 @@ export default async function LessonPage({
 }) {
   const session = await getSession();
   const { lessonId } = await params;
+
+  const userUuid = session ? toUuid(session.id) : null;
+  const lessonUuid = toUuid(lessonId);
+
+  let progressRecord = null;
+  if (userUuid) {
+    const records = await db
+      .select()
+      .from(lessonProgress)
+      .where(and(eq(lessonProgress.userId, userUuid), eq(lessonProgress.lessonId, lessonUuid)));
+    if (records.length > 0) {
+      progressRecord = records[0];
+    }
+  }
+
+  const initialCompleted = progressRecord?.completed ?? false;
+  const initialDuration = progressRecord?.watchedDuration ?? 0;
 
   const lesson = INITIAL_LESSONS.find((l) => l.id === lessonId);
   if (!lesson) notFound();
@@ -102,7 +123,8 @@ export default async function LessonPage({
             prevLessonId={prevLesson?.id}
             nextLessonId={nextLesson?.id}
             topicQuizId={topicQuiz?.id}
-            initialCompleted={false}
+            initialCompleted={initialCompleted}
+            initialDuration={initialDuration}
           />
         </main>
       </div>

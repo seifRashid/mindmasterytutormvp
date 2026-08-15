@@ -24,7 +24,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import type { Lesson, LessonAttachment, Quiz, Question, AttachmentType } from "@/lib/types";
-
+import { VideoPlayer } from "./VideoPlayer";
 
 type Tab = "notes" | "video" | "materials" | "quiz";
 
@@ -36,6 +36,7 @@ interface LessonViewerProps {
   nextLessonId?: string;
   topicQuizId?: string;
   initialCompleted?: boolean;
+  initialDuration?: number;
 }
 
 const ATTACHMENT_ICONS: Record<AttachmentType, React.ElementType> = {
@@ -304,6 +305,7 @@ export function LessonViewer({
   nextLessonId,
   topicQuizId,
   initialCompleted = false,
+  initialDuration = 0,
 }: LessonViewerProps) {
   // Decide default tab: Notes if there's content, otherwise Video
   const defaultTab: Tab = lesson.richContent ? "notes" : lesson.videoUrl ? "video" : "materials";
@@ -367,23 +369,14 @@ export function LessonViewer({
       {activeTab === "video" && (
         <div className="space-y-4">
           {lesson.videoUrl ? (
-            <>
-              <div className="rounded-2xl overflow-hidden bg-slate-950 shadow-2xl aspect-video border border-slate-800">
-                <iframe
-                  src={lesson.videoUrl}
-                  title={lesson.title}
-                  className="w-full h-full"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
-                  allowFullScreen
-                />
-              </div>
-              {lesson.duration > 0 && (
-                <p className="text-xs text-slate-500 text-center">
-                  <Clock className="w-3.5 h-3.5 inline mr-1" />
-                  Estimated duration: {Math.floor(lesson.duration / 60)} min{Math.floor(lesson.duration / 60) !== 1 ? "s" : ""}
-                </p>
-              )}
-            </>
+            <VideoPlayer
+              lesson={lesson}
+              prevLessonId={prevLessonId}
+              nextLessonId={nextLessonId}
+              nextQuizId={topicQuizId}
+              initialCompleted={initialCompleted}
+              initialDuration={initialDuration}
+            />
           ) : (
             <div className="flex flex-col items-center justify-center py-20 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-700 text-slate-400">
               <Video className="w-10 h-10 mb-3" />

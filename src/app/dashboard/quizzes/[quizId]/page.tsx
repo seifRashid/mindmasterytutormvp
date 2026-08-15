@@ -5,7 +5,15 @@ import { Navbar } from "@/components/layout/Navbar";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { QuizEngine } from "@/components/student/QuizEngine";
 import { getSession } from "@/lib/auth";
-import { INITIAL_QUESTIONS, INITIAL_QUIZZES, INITIAL_TOPICS } from "@/lib/mock-data";
+import { db } from "@/db";
+import {
+  quizzes as dbQuizzes,
+  questions as dbQuestions,
+  answers as dbAnswers,
+  topics as dbTopics,
+} from "@/db/schema";
+import { eq, inArray } from "drizzle-orm";
+import { toUuid } from "@/lib/id-mapper";
 
 export default async function QuizPage({
   params,
@@ -15,11 +23,42 @@ export default async function QuizPage({
   const session = await getSession();
   const { quizId } = await params;
 
-  const quiz = INITIAL_QUIZZES.find((q) => q.id === quizId);
-  if (!quiz) notFound();
+  const quizUuid = toUuid(quizId);
 
-  const questions = INITIAL_QUESTIONS.filter((q) => q.quizId === quiz.id);
-  const topic = INITIAL_TOPICS.find((t) => t.id === quiz.topicId);
+  // Fetch quiz details from database
+  const quizResult = await db.select().from(dbQuizzes).where(eq(dbQuizzes.id, quizUuid));
+  if (quizResult.length === 0) notFound();
+  const quiz = quizResult[0];
+
+  // Fetch quiz questions
+  const questionsList = await db
+    .select()
+    .from(dbQuestions)
+    .where(eq(dbQuestions.quizId, quizUuid))
+    .orderBy(dbQuestions.orderNumber);
+
+  let questions: any[] = [];
+  if (questionsList.length > 0) {
+    const questionIds = questionsList.map((q) => q.id);
+    const answersList = await db
+      .select()
+      .from(dbAnswers)
+      .where(inArray(dbAnswers.questionId, questionIds));
+
+    questions = questionsList.map((q) => ({
+      ...q,
+      answers: answersList.filter((a) => a.questionId === q.id),
+    }));
+  }
+
+  // Fetch associated topic
+  let topic = null;
+  if (quiz.topicId) {
+    const topicResult = await db.select().from(dbTopics).where(eq(dbTopics.id, quiz.topicId));
+    if (topicResult.length > 0) {
+      topic = topicResult[0];
+    }
+  }
 
   return (
     <div className="min-h-screen bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-white flex flex-col">
@@ -40,7 +79,7 @@ export default async function QuizPage({
             <span className="text-slate-900 dark:text-white font-bold">{quiz.title}</span>
           </div>
 
-          <QuizEngine quiz={quiz} questions={questions} topicSlug={topic?.slug} />
+          <QuizEngine quiz={quiz as any} questions={questions} topicSlug={topic?.slug || undefined} />
         </main>
       </div>
     </div>
