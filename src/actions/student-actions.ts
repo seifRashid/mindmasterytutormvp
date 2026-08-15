@@ -2,18 +2,16 @@
 
 import { revalidatePath } from "next/cache";
 import { getSession } from "@/lib/auth";
+import { db } from "@/db";
 import {
-  INITIAL_ATTEMPTS,
-  INITIAL_PROGRESS,
-  INITIAL_QUESTIONS,
-  INITIAL_QUIZZES,
-  LessonProgress,
-  QuizAttempt,
-} from "@/lib/mock-data";
-
-// In-memory data structures for fast interactive testing
-const progressStore: LessonProgress[] = [...INITIAL_PROGRESS];
-const attemptsStore: QuizAttempt[] = [...INITIAL_ATTEMPTS];
+  lessonProgress as dbProgress,
+  quizAttempts as dbAttempts,
+  quizzes as dbQuizzes,
+  questions as dbQuestions,
+  answers as dbAnswers,
+} from "@/db/schema";
+import { eq, and, inArray } from "drizzle-orm";
+import { toUuid } from "@/lib/id-mapper";
 
 export async function updateLessonProgressAction(
   lessonId: string,
@@ -23,33 +21,54 @@ export async function updateLessonProgressAction(
   const session = await getSession();
   const userId = session ? session.id : "user-student-1";
 
-  const existingIndex = progressStore.findIndex(
-    (p) => p.userId === userId && p.lessonId === lessonId
-  );
+  const userUuid = toUuid(userId);
+  const lessonUuid = toUuid(lessonId);
 
-  if (existingIndex > -1) {
-    progressStore[existingIndex].watchedDuration = Math.max(
-      progressStore[existingIndex].watchedDuration,
-      watchedDuration
-    );
-    if (completed) {
-      progressStore[existingIndex].completed = true;
+  let progressRecord = null;
+  try {
+    const existing = await db
+      .select()
+      .from(dbProgress)
+      .where(and(eq(dbProgress.userId, userUuid), eq(dbProgress.lessonId, lessonUuid)));
+    
+    if (existing.length > 0) {
+      progressRecord = existing[0];
+      await db
+        .update(dbProgress)
+        .set({
+          watchedDuration: Math.max(progressRecord.watchedDuration, watchedDuration),
+          completed: completed || progressRecord.completed,
+          updatedAt: new Date(),
+        })
+        .where(eq(dbProgress.id, progressRecord.id));
+    } else {
+      await db.insert(dbProgress).values({
+        userId: userUuid,
+        lessonId: lessonUuid,
+        completed,
+        watchedDuration,
+        updatedAt: new Date(),
+      });
     }
-    progressStore[existingIndex].updatedAt = new Date().toISOString();
-  } else {
-    progressStore.push({
-      id: `prog-${Date.now()}`,
-      userId,
-      lessonId,
-      completed,
-      watchedDuration,
-      updatedAt: new Date().toISOString(),
-    });
+  } catch (err) {
+    console.error("Failed to update lesson progress in database:", err);
+    return { success: false, error: "Database update failed." };
   }
 
   revalidatePath("/dashboard");
   revalidatePath(`/dashboard/lessons/${lessonId}`);
-  return { success: true, progress: progressStore.find((p) => p.userId === userId && p.lessonId === lessonId) };
+  revalidatePath("/dashboard/progress");
+
+  // Fetch updated progress for client response
+  try {
+    const updated = await db
+      .select()
+      .from(dbProgress)
+      .where(and(eq(dbProgress.userId, userUuid), eq(dbProgress.lessonId, lessonUuid)));
+    return { success: true, progress: updated[0] };
+  } catch {
+    return { success: true };
+  }
 }
 
 export async function submitQuizAttemptAction(
@@ -59,17 +78,55 @@ export async function submitQuizAttemptAction(
   const session = await getSession();
   const userId = session ? session.id : "user-student-1";
 
-  const quiz = INITIAL_QUIZZES.find((q) => q.id === quizId);
-  const questions = INITIAL_QUESTIONS.filter((q) => q.quizId === quizId);
+  const userUuid = toUuid(userId);
+  const quizUuid = toUuid(quizId);
 
-  if (!quiz || questions.length === 0) {
-    return { error: "Quiz or questions not found." };
+  // 1. Fetch Quiz and Questions from DB
+  let quiz;
+  let quizQuestions: any[] = [];
+  try {
+    const quizResult = await db
+      .select()
+      .from(dbQuizzes)
+      .where(eq(dbQuizzes.id, quizUuid));
+    
+    if (quizResult.length === 0) {
+      return { error: "Quiz not found." };
+    }
+    quiz = quizResult[0];
+
+    const questionsList = await db
+      .select()
+      .from(dbQuestions)
+      .where(eq(dbQuestions.quizId, quizUuid))
+      .orderBy(dbQuestions.orderNumber);
+
+    if (questionsList.length > 0) {
+      const questionIds = questionsList.map((q) => q.id);
+      const answersList = await db
+        .select()
+        .from(dbAnswers)
+        .where(inArray(dbAnswers.questionId, questionIds));
+
+      quizQuestions = questionsList.map((q) => ({
+        ...q,
+        answers: answersList.filter((a) => a.questionId === q.id),
+      }));
+    }
+  } catch (err) {
+    console.error("Failed to fetch quiz data from DB:", err);
+    return { error: "Failed to retrieve quiz details from database." };
   }
 
+  if (quizQuestions.length === 0) {
+    return { error: "Quiz questions not found." };
+  }
+
+  // 2. Grade the attempt
   let correctCount = 0;
-  const questionResults = questions.map((q) => {
+  const questionResults = quizQuestions.map((q) => {
     const selectedAnswerId = userSelectedAnswers[q.id];
-    const correctAnswer = q.answers.find((a) => a.isCorrect);
+    const correctAnswer = q.answers.find((a: any) => a.isCorrect);
     const isCorrect = selectedAnswerId === correctAnswer?.id;
     if (isCorrect) correctCount++;
 
@@ -82,36 +139,41 @@ export async function submitQuizAttemptAction(
     };
   });
 
-  const score = Math.round((correctCount / questions.length) * 100);
+  const score = Math.round((correctCount / quizQuestions.length) * 100);
   const passed = score >= quiz.passingScore;
 
-  // Track attempt history for this user & quiz
-  const pastAttempts = attemptsStore.filter(
-    (a) => a.userId === userId && a.quizId === quizId
-  );
-  const previousFailedCount = pastAttempts.reduce(
-    (max, a) => Math.max(max, a.failedAttempts),
-    0
-  );
+  // 3. Track attempt history in DB
+  let newFailedAttempts = 0;
+  try {
+    const pastAttempts = await db
+      .select()
+      .from(dbAttempts)
+      .where(and(eq(dbAttempts.userId, userUuid), eq(dbAttempts.quizId, quizUuid)));
 
-  const newFailedAttempts = passed ? 0 : previousFailedCount + 1;
+    const previousFailedCount = pastAttempts.reduce(
+      (max: number, a: any) => Math.max(max, a.failedAttempts),
+      0
+    );
 
-  const newAttempt: QuizAttempt = {
-    id: `att-${Date.now()}`,
-    userId,
-    quizId,
-    score,
-    failedAttempts: newFailedAttempts,
-    createdAt: new Date().toISOString(),
-  };
+    newFailedAttempts = passed ? 0 : previousFailedCount + 1;
 
-  attemptsStore.push(newAttempt);
+    await db.insert(dbAttempts).values({
+      userId: userUuid,
+      quizId: quizUuid,
+      score,
+      failedAttempts: newFailedAttempts,
+      createdAt: new Date(),
+    });
+  } catch (err) {
+    console.error("Failed to save quiz attempt in database:", err);
+  }
 
   // Reveal explanations after 3 failed attempts
   const showExplanations = newFailedAttempts >= 3;
 
   revalidatePath(`/dashboard/quizzes/${quizId}`);
   revalidatePath("/dashboard/progress");
+  revalidatePath("/dashboard");
 
   return {
     success: true,
@@ -123,3 +185,4 @@ export async function submitQuizAttemptAction(
     questionResults,
   };
 }
+
