@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "generate": "drizzle-kit generate",
-    "migrate:dev": "drizzle-kit migrate --config=dev.drizzle.config.ts"
+    "migrate:dev": "drizzle-kit migrate --config=dev.drizzle.config.ts",
+    "seed:dev": "npx tsx src/db/seed.dev.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.7.1",
