@@ -4,6 +4,8 @@ import { drizzle } from "drizzle-orm/neon-http";
 import * as schema from "./schema";
 import { hashPassword } from "../lib/crypto";
 import { ne, eq } from "drizzle-orm";
+import { INITIAL_CLASSES } from "../lib/mock-data";
+import { toUuid } from "../lib/id-mapper";
 
 dotenv.config({ path: ".env" });
 
@@ -53,6 +55,17 @@ async function main() {
 
     console.log("Deleting classes...");
     await db.delete(schema.classes);
+
+    console.log("Re-seeding system reference classes...");
+    for (const c of INITIAL_CLASSES) {
+      await db.insert(schema.classes).values({
+        id: toUuid(c.id),
+        name: c.name,
+        slug: c.slug,
+        createdAt: new Date(),
+      });
+    }
+    console.log(`   ✓ Re-seeded ${INITIAL_CLASSES.length} reference classes.`);
 
     // 3. Remove all non-admin users (test students and teachers)
     console.log("Deleting non-admin users (test students & teachers)...");

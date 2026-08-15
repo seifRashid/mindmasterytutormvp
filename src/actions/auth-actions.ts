@@ -64,7 +64,7 @@ export async function loginAction(prevState: any, formData: FormData): Promise<{
   }
 }
 
-export async function registerStudentAction(formData: FormData): Promise<void> {
+export async function registerStudentAction(prevState: any, formData: FormData): Promise<{ error?: string } | void> {
   const name = formData.get("name") as string;
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
@@ -78,12 +78,19 @@ export async function registerStudentAction(formData: FormData): Promise<void> {
   const notes = (formData.get("notes") as string) || undefined;
 
   if (!name || !email || !password) {
-    return;
+    return { error: "Required student identification fields are missing." };
   }
 
-  const existing = await findUserByEmail(email);
+  let existing;
+  try {
+    existing = await findUserByEmail(email);
+  } catch (err) {
+    console.error("Database connection error during lookup:", err);
+    return { error: "Database error. Please try again." };
+  }
+
   if (existing) {
-    return;
+    return { error: "An account with this email address already exists." };
   }
 
   const hashedPassword = await hashPassword(password);
@@ -106,23 +113,45 @@ export async function registerStudentAction(formData: FormData): Promise<void> {
     createdAt: new Date().toISOString(),
   };
 
-  await addUser(newUser);
-  await setSession(newUser);
+  try {
+    await addUser(newUser);
+  } catch (err: any) {
+    console.error("Failed to add user to database:", err);
+    if (err?.message?.includes("foreign key") || err?.toString()?.includes("foreign key")) {
+      return { error: "The assigned grade/class you selected is invalid or has not been fully created in the system database." };
+    }
+    return { error: "Failed to register account in the database. Please contact support." };
+  }
+
+  try {
+    await setSession(newUser);
+  } catch (err) {
+    console.error("Failed to set session after registration:", err);
+    return { error: "Account created but failed to establish session. Please sign in." };
+  }
+
   redirect("/pending-approval");
 }
 
-export async function registerTeacherAction(formData: FormData): Promise<void> {
+export async function registerTeacherAction(prevState: any, formData: FormData): Promise<{ error?: string } | void> {
   const name = formData.get("name") as string;
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
 
   if (!name || !email || !password) {
-    return;
+    return { error: "All registration fields are required." };
   }
 
-  const existing = await findUserByEmail(email);
+  let existing;
+  try {
+    existing = await findUserByEmail(email);
+  } catch (err) {
+    console.error("Database lookup error for teacher registration:", err);
+    return { error: "Database error. Please try again." };
+  }
+
   if (existing) {
-    return;
+    return { error: "An account with this email address already exists." };
   }
 
   const hashedPassword = await hashPassword(password);
@@ -137,8 +166,20 @@ export async function registerTeacherAction(formData: FormData): Promise<void> {
     createdAt: new Date().toISOString(),
   };
 
-  await addUser(newUser);
-  await setSession(newUser);
+  try {
+    await addUser(newUser);
+  } catch (err) {
+    console.error("Failed to insert teacher in database:", err);
+    return { error: "Failed to create instructor account. Please try again." };
+  }
+
+  try {
+    await setSession(newUser);
+  } catch (err) {
+    console.error("Failed to establish session after teacher registration:", err);
+    return { error: "Instructor account created but session establishment failed. Please login." };
+  }
+
   redirect("/teacher");
 }
 
