@@ -19,13 +19,13 @@ dotenv.config({ path: ".env" });
 
 // Safety guard — never run seed in production
 if (process.env.NODE_ENV === "production") {
-  console.error("❌ seed.ts must NOT be run in production. Use seed.dev.ts for development only.");
+  console.error("❌ seed.dev.ts must NOT be run in production.");
   process.exit(1);
 }
 
-const connectionString = process.env.DATABASE_URL || "";
+const connectionString = process.env.DEV_DATABASE_URL || "";
 if (!connectionString) {
-  console.error("DATABASE_URL is not set in environment variables!");
+  console.error("DEV_DATABASE_URL is not set in environment variables!");
   process.exit(1);
 }
 
@@ -33,7 +33,7 @@ const sql = neon(connectionString);
 const db = drizzle(sql, { schema });
 
 async function main() {
-  console.log("Seeding database with full mock data...");
+  console.log("Seeding DEVELOPMENT database with full mock data...");
 
   try {
     // 1. Clean existing records in dependency order (children first)
@@ -194,9 +194,9 @@ async function main() {
     }
     console.log(`Seeded ${INITIAL_QUESTIONS.length} questions and their answers.`);
 
-    console.log("Seeding completed successfully!");
+    console.log("Development database seeding completed successfully!");
   } catch (error) {
-    console.error("Error seeding database:", error);
+    console.error("Error seeding development database:", error);
     process.exit(1);
   }
 }

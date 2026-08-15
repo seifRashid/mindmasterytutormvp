@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { clearSession, setSession } from "@/lib/auth";
-import { User } from "@/lib/mock-data";
+import { User } from "@/lib/types";
 import { addUser, findUserByEmail, findUserById } from "@/lib/user-store";
 import { revalidatePath } from "next/cache";
 import { comparePassword, hashPassword } from "@/lib/crypto";

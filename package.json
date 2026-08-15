@@ -6,7 +6,11 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "generate": "drizzle-kit generate",
+    "migrate:dev": "drizzle-kit migrate --config=dev.drizzle.config.ts",
+    "seed:dev": "npx tsx src/db/seed.dev.ts",
+    "clean:prod": "npx tsx src/db/clean-prod.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.7.1",

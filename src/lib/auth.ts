@@ -1,5 +1,5 @@
 import { cookies } from "next/headers";
-import { User } from "./mock-data";
+import { User } from "./types";
 import { findUserById } from "./user-store";
 
 const COOKIE_NAME = "mindmastery_session";

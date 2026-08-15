@@ -1,124 +1,36 @@
-export type UserStatus = "pending" | "approved" | "rejected";
+// ─── Re-export all types from the canonical types module ─────────────────────
+// mock-data.ts is for DEVELOPMENT / SEEDING use only.
+// All type definitions live in src/lib/types.ts.
+export type {
+  UserStatus,
+  AttachmentType,
+  QuestionType,
+  User,
+  ClassLevel,
+  Subject,
+  Topic,
+  LessonAttachment,
+  Lesson,
+  Quiz,
+  Answer,
+  Question,
+  QuizAttempt,
+  LessonProgress,
+} from "./types";
 
-export interface User {
-  id: string;
-  name: string;
-  email: string;
-  password?: string;
-  role: "student" | "teacher" | "admin";
-  phone?: string;
-  age?: number;
-  gender?: "male" | "female" | "other";
-  classId?: string;
-  parentName?: string;
-  parentPhone?: string;
-  parentEmail?: string;
-  notes?: string;
-  status?: UserStatus;
-  rejectionReason?: string;
-  image?: string;
-  createdAt: string;
-}
-
-export interface ClassLevel {
-  id: string;
-  name: string;
-  slug: string;
-  createdAt: string;
-}
-
-export interface Subject {
-  id: string;
-  classId: string;
-  title: string;
-  slug: string;
-  description: string;
-  icon: string;
-  createdAt: string;
-}
-
-export interface Topic {
-  id: string;
-  subjectId: string;
-  title: string;
-  slug: string;
-  description: string;
-  orderNumber: number;
-  createdAt: string;
-}
-
-export type AttachmentType = "pdf" | "doc" | "image" | "link" | "presentation" | "other";
-
-export interface LessonAttachment {
-  id: string;
-  lessonId: string;
-  name: string;
-  url: string;
-  type: AttachmentType;
-  orderNumber: number;
-}
-
-export type QuestionType = "multiple_choice" | "true_false" | "short_answer";
-
-export interface Lesson {
-  id: string;
-  topicId: string;
-  title: string;
-  description: string;
-  richContent?: string;         // Markdown lesson notes
-  videoUrl?: string;            // Optional YouTube/video embed URL
-  duration: number;             // seconds
-  orderNumber: number;
-  attachments?: LessonAttachment[];
-  lessonQuizId?: string;        // Optional inline quiz linked to this lesson
-  createdAt: string;
-}
-
-export interface Quiz {
-  id: string;
-  topicId?: string;             // Attached to topic (optional — may be lesson-level)
-  lessonId?: string;            // Attached to a specific lesson (optional)
-  title: string;
-  passingScore: number;         // percentage 0-100
-  timeLimitMinutes?: number;    // 0 = no limit
-  showFeedback: boolean;        // Show explanation after each question
-  createdAt: string;
-}
-
-export interface Question {
-  id: string;
-  quizId: string;
-  type: QuestionType;
-  question: string;
-  explanation: string;
-  orderNumber: number;
-  answers: Answer[];
-}
-
-export interface Answer {
-  id: string;
-  questionId: string;
-  answer: string;
-  isCorrect: boolean;
-}
-
-export interface QuizAttempt {
-  id: string;
-  userId: string;
-  quizId: string;
-  score: number;
-  failedAttempts: number;
-  createdAt: string;
-}
-
-export interface LessonProgress {
-  id: string;
-  userId: string;
-  lessonId: string;
-  completed: boolean;
-  watchedDuration: number;
-  updatedAt: string;
-}
+import type {
+  User,
+  ClassLevel,
+  Subject,
+  Topic,
+  LessonAttachment,
+  Lesson,
+  Quiz,
+  Answer,
+  Question,
+  QuizAttempt,
+  LessonProgress,
+} from "./types";
 
 // ─── MOCK SEED DATA ──────────────────────────────────────────────────────────
 
