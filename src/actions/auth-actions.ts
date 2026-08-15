@@ -11,21 +11,44 @@ import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { toUuid } from "@/lib/id-mapper";
 
-export async function loginAction(formData: FormData): Promise<void> {
+export async function loginAction(prevState: any, formData: FormData): Promise<{ error?: string } | void> {
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
 
   if (!email || !password) {
-    return;
+    return { error: "Email and password are required." };
   }
 
-  const user = await findUserByEmail(email);
-
-  if (!user || !user.password || !(await comparePassword(password, user.password))) {
-    return;
+  let user;
+  try {
+    user = await findUserByEmail(email);
+  } catch (err) {
+    console.error("Failed to query user:", err);
+    return { error: "Failed to connect to the database. Please try again." };
   }
 
-  await setSession(user);
+  if (!user || !user.password) {
+    return { error: "Invalid email or password." };
+  }
+
+  let isValid = false;
+  try {
+    isValid = await comparePassword(password, user.password);
+  } catch (err) {
+    console.error("Password comparison failed:", err);
+    return { error: "Error verifying password. Please try again." };
+  }
+
+  if (!isValid) {
+    return { error: "Invalid email or password." };
+  }
+
+  try {
+    await setSession(user);
+  } catch (err) {
+    console.error("Failed to set session:", err);
+    return { error: "Failed to sign in. Please try again." };
+  }
 
   // Redirect based on role and account status
   if (user.role === "admin") {

@@ -3,6 +3,7 @@ import { GraduationCap, ArrowRight, Lock, Mail, Sparkles } from "lucide-react";
 import { loginAction } from "@/actions/auth-actions";
 import { Navbar } from "@/components/layout/Navbar";
 import { getSession } from "@/lib/auth";
+import { LoginForm } from "./LoginForm";
 
 export default async function LoginPage() {
   const session = await getSession();
@@ -36,47 +37,8 @@ export default async function LoginPage() {
             </div>
           </div>
 
-          <form action={loginAction} className="space-y-4">
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                Email Address
-              </label>
-              <div className="relative">
-                <Mail className="w-4 h-4 text-slate-500 absolute left-3.5 top-3" />
-                <input
-                  name="email"
-                  type="email"
-                  required
-                  placeholder="student@mindmastery.edu"
-                  className="w-full pl-10 pr-4 py-2.5 text-xs rounded-xl bg-slate-950 border border-slate-800 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-            </div>
+          <LoginForm loginAction={loginAction} />
 
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                Password
-              </label>
-              <div className="relative">
-                <Lock className="w-4 h-4 text-slate-500 absolute left-3.5 top-3" />
-                <input
-                  name="password"
-                  type="password"
-                  required
-                  placeholder="••••••••"
-                  className="w-full pl-10 pr-4 py-2.5 text-xs rounded-xl bg-slate-950 border border-slate-800 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-lg shadow-blue-600/30 transition-all flex items-center justify-center gap-2"
-            >
-              Sign In
-              <ArrowRight className="w-4 h-4" />
-            </button>
-          </form>
 
           <div className="pt-4 border-t border-slate-800 text-center text-xs text-slate-400 space-y-2">
             <p>
