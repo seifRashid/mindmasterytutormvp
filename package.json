@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "generate": "drizzle-kit generate",
+    "migrate:dev": "drizzle-kit migrate --config=dev.drizzle.config.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.7.1",
