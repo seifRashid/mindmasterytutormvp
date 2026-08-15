@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { submitQuizAttemptAction } from "@/actions/student-actions";
-import { Question, Quiz } from "@/lib/mock-data";
+import { Question, Quiz } from "@/lib/types";
 
 interface QuizEngineProps {
   quiz: Quiz;

@@ -20,7 +20,7 @@ import {
   X,
   Check,
 } from "lucide-react";
-import type { User, ClassLevel } from "@/lib/mock-data";
+import type { User, ClassLevel } from "@/lib/types";
 import { approveStudentAction, rejectStudentAction } from "@/actions/auth-actions";
 
 interface StudentApprovalsDashboardProps {

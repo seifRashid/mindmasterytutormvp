@@ -17,6 +17,12 @@ import { hashPassword } from "../lib/crypto";
 // Load environment variables
 dotenv.config({ path: ".env" });
 
+// Safety guard — never run seed in production
+if (process.env.NODE_ENV === "production") {
+  console.error("❌ seed.ts must NOT be run in production. Use seed.dev.ts for development only.");
+  process.exit(1);
+}
+
 const connectionString = process.env.DATABASE_URL || "";
 if (!connectionString) {
   console.error("DATABASE_URL is not set in environment variables!");

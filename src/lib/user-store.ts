@@ -2,7 +2,7 @@ import { db } from "@/db";
 import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { toUuid, fromUuid } from "./id-mapper";
-import { User } from "./mock-data";
+import { User } from "./types";
 
 // Keep usersStore as a legacy fallback/empty array to prevent compile errors
 // while we transition remaining imports.

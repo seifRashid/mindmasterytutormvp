@@ -22,7 +22,7 @@ import {
   BookOpen,
   Settings2,
 } from "lucide-react";
-import type { Lesson, LessonAttachment, Quiz, Question, Answer, AttachmentType, QuestionType } from "@/lib/mock-data";
+import type { Lesson, LessonAttachment, Quiz, Question, Answer, AttachmentType, QuestionType } from "@/lib/types";
 
 import { RichTextEditor } from "@/components/editor/RichTextEditor";
 

@@ -1,5 +1,4 @@
 import { createHash } from "crypto";
-import { INITIAL_CLASSES, INITIAL_USERS } from "./mock-data";
 
 /**
  * Generate a deterministic UUID from a string (or return it if it is already a UUID).
@@ -22,15 +21,10 @@ export function toUuid(str: string): string {
 }
 
 /**
- * Map a UUID back to a known mock ID (or return as-is if no match).
+ * In production all IDs are real UUIDs — return as-is.
+ * Kept for call-site compatibility.
  */
 export function fromUuid(uuid: string): string {
-  if (!uuid) return "";
-  for (const c of INITIAL_CLASSES) {
-    if (toUuid(c.id) === uuid) return c.id;
-  }
-  for (const u of INITIAL_USERS) {
-    if (toUuid(u.id) === uuid) return u.id;
-  }
   return uuid;
 }
+

@@ -23,7 +23,7 @@ import {
   BookOpen,
   AlertCircle,
 } from "lucide-react";
-import type { Lesson, LessonAttachment, Quiz, Question, AttachmentType } from "@/lib/mock-data";
+import type { Lesson, LessonAttachment, Quiz, Question, AttachmentType } from "@/lib/types";
 
 
 type Tab = "notes" | "video" | "materials" | "quiz";

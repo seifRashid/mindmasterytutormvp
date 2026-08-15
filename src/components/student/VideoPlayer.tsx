@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { CheckCircle2, Play, Pause, Award, ArrowRight, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { updateLessonProgressAction } from "@/actions/student-actions";
-import { Lesson } from "@/lib/mock-data";
+import { Lesson } from "@/lib/types";
 
 interface VideoPlayerProps {
   lesson: Lesson;
