@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import type { Lesson, LessonAttachment, Quiz, Question, AttachmentType } from "@/lib/types";
 import { VideoPlayer } from "./VideoPlayer";
+import { updateLessonProgressAction } from "@/actions/student-actions";
 
 type Tab = "notes" | "video" | "materials" | "quiz";
 
@@ -59,7 +60,7 @@ const ATTACHMENT_COLORS: Record<AttachmentType, string> = {
 
 // ── Inline Quiz Engine ───────────────────────────────────────────────────────
 
-function InlineQuiz({ quiz, questions }: { quiz: Quiz; questions: Question[] }) {
+function InlineQuiz({ quiz, questions, onPass }: { quiz: Quiz; questions: Question[]; onPass: () => void }) {
   const [current, setCurrent] = useState(0);
   const [selected, setSelected] = useState<Record<string, string>>({}); // questionId → answerId
   const [shortInputs, setShortInputs] = useState<Record<string, string>>({}); // questionId → text
@@ -81,6 +82,23 @@ function InlineQuiz({ quiz, questions }: { quiz: Quiz; questions: Question[] }) 
   const handleSubmit = () => {
     setSubmitted(true);
     setAttempts((p) => p + 1);
+    
+    // Check if score passed and trigger completion
+    const scoreVal = questions.reduce((acc, q) => {
+      if (q.type === "short_answer") {
+        const correct = q.answers.find((a: any) => a.isCorrect)?.answer.toLowerCase().trim() ?? "";
+        const given = (shortInputs[q.id] ?? "").toLowerCase().trim();
+        return acc + (given === correct ? 1 : 0);
+      }
+      const sel = selected[q.id];
+      const correctAns = q.answers.find((a: any) => a.isCorrect);
+      return acc + (sel === correctAns?.id ? 1 : 0);
+    }, 0);
+    const pctVal = questions.length > 0 ? Math.round((scoreVal / questions.length) * 100) : 0;
+    const passedVal = pctVal >= quiz.passingScore;
+    if (passedVal) {
+      onPass();
+    }
   };
 
   const handleRetry = () => {
@@ -307,6 +325,25 @@ export function LessonViewer({
   initialCompleted = false,
   initialDuration = 0,
 }: LessonViewerProps) {
+  const [completed, setCompleted] = useState(initialCompleted);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const updateProgress = async (watchedDuration: number, completedStatus: boolean) => {
+    setIsSaving(true);
+    setCompleted(completedStatus);
+    try {
+      await updateLessonProgressAction(lesson.id, watchedDuration, completedStatus);
+    } catch (err) {
+      console.error("Failed to update progress:", err);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleToggleComplete = () => {
+    updateProgress(0, !completed);
+  };
+
   // Decide default tab: Notes if there's content, otherwise Video
   const defaultTab: Tab = lesson.richContent ? "notes" : lesson.videoUrl ? "video" : "materials";
   const [activeTab, setActiveTab] = useState<Tab>(defaultTab);
@@ -371,11 +408,10 @@ export function LessonViewer({
           {lesson.videoUrl ? (
             <VideoPlayer
               lesson={lesson}
-              prevLessonId={prevLessonId}
-              nextLessonId={nextLessonId}
-              nextQuizId={topicQuizId}
-              initialCompleted={initialCompleted}
+              completed={completed}
+              isSaving={isSaving}
               initialDuration={initialDuration}
+              updateProgress={updateProgress}
             />
           ) : (
             <div className="flex flex-col items-center justify-center py-20 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-700 text-slate-400">
@@ -436,7 +472,7 @@ export function LessonViewer({
       {activeTab === "quiz" && (
         <div>
           {quiz ? (
-            <InlineQuiz quiz={quiz} questions={questions} />
+            <InlineQuiz quiz={quiz} questions={questions} onPass={() => updateProgress(0, true)} />
           ) : topicQuizId ? (
             <div className="flex flex-col items-center justify-center py-16 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 gap-4">
               <HelpCircle className="w-10 h-10 text-blue-500" />
@@ -473,6 +509,20 @@ export function LessonViewer({
         ) : (
           <div />
         )}
+
+        {/* Dynamic Mark Complete Button visible from all tabs */}
+        <button
+          onClick={handleToggleComplete}
+          disabled={isSaving}
+          className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold shadow-sm transition-all active:scale-[0.98] select-none ${
+            completed
+              ? "bg-emerald-600 text-white hover:bg-emerald-500"
+              : "bg-slate-200 dark:bg-slate-800 text-slate-800 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-600"
+          }`}
+        >
+          <CheckCircle2 className="w-4 h-4" />
+          {completed ? "Lesson Completed ✓" : "Mark Lesson Complete"}
+        </button>
 
         {nextLessonId ? (
           <Link
