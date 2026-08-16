@@ -49,9 +49,10 @@ export function LessonsListManager({
     return topics;
   }, [selectedClassId, selectedSubjectId, topics, subjects]);
 
-  // Lessons Filtering Logic
   const filteredLessons = useMemo(() => {
     return lessons.filter((les) => {
+      if (isRecycleBin) return true; // Do not apply filters to Recycle Bin items
+
       const topic = topics.find((t) => t.id === les.topicId);
       const subject = topic ? subjects.find((s) => s.id === topic.subjectId) : null;
       const classLevel = subject ? classes.find((c) => c.id === subject.classId) : null;
@@ -63,100 +64,102 @@ export function LessonsListManager({
 
       return matchesTitle && matchesClass && matchesSubject && matchesTopic;
     });
-  }, [lessons, searchTitle, selectedClassId, selectedSubjectId, selectedTopicId, topics, subjects, classes]);
+  }, [lessons, isRecycleBin, searchTitle, selectedClassId, selectedSubjectId, selectedTopicId, topics, subjects, classes]);
 
   return (
     <div className="space-y-5">
       {/* ── FILTER CONTROL PANEL ───────────────────────────────────── */}
-      <div className="p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
-        <div className="flex items-center gap-2 border-b border-slate-100 dark:border-slate-800 pb-3 text-slate-700 dark:text-slate-200">
-          <SlidersHorizontal className="w-4 h-4 text-slate-500" />
-          <h2 className="text-sm font-bold">Filter & Search Lessons</h2>
-        </div>
+      {!isRecycleBin && (
+        <div className="p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
+          <div className="flex items-center gap-2 border-b border-slate-100 dark:border-slate-800 pb-3 text-slate-700 dark:text-slate-200">
+            <SlidersHorizontal className="w-4 h-4 text-slate-500" />
+            <h2 className="text-sm font-bold">Filter & Search Lessons</h2>
+          </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* Search by Title */}
-          <div className="space-y-1">
-            <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider">
-              Lesson Title
-            </label>
-            <div className="relative">
-              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-3" />
-              <input
-                type="text"
-                value={searchTitle}
-                onChange={(e) => setSearchTitle(e.target.value)}
-                placeholder="Search by title..."
-                className={`w-full pl-9 pr-4 py-2 border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-xs font-semibold rounded-xl text-slate-850 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 ${accentColor} transition-all`}
-              />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Search by Title */}
+            <div className="space-y-1">
+              <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                Lesson Title
+              </label>
+              <div className="relative">
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-3" />
+                <input
+                  type="text"
+                  value={searchTitle}
+                  onChange={(e) => setSearchTitle(e.target.value)}
+                  placeholder="Search by title..."
+                  className={`w-full pl-9 pr-4 py-2 border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-xs font-semibold rounded-xl text-slate-850 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 ${accentColor} transition-all`}
+                />
+              </div>
+            </div>
+
+            {/* Grade / Class Filter */}
+            <div className="space-y-1">
+              <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                Grade / Class
+              </label>
+              <select
+                value={selectedClassId}
+                onChange={(e) => {
+                  setSelectedClassId(e.target.value);
+                  setSelectedSubjectId(""); // Reset dependent filters
+                  setSelectedTopicId("");
+                }}
+                className={`w-full px-3 py-2 border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-xs font-semibold rounded-xl text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 ${accentColor} transition-all`}
+              >
+                <option value="">All Grades</option>
+                {classes.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Subject Filter */}
+            <div className="space-y-1">
+              <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                Subject
+              </label>
+              <select
+                value={selectedSubjectId}
+                onChange={(e) => {
+                  setSelectedSubjectId(e.target.value);
+                  setSelectedTopicId(""); // Reset dependent filters
+                }}
+                className={`w-full px-3 py-2 border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-xs font-semibold rounded-xl text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 ${accentColor} transition-all`}
+              >
+                <option value="">All Subjects</option>
+                {filteredSubjectsList.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.title}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Topic / Subtopic Filter */}
+            <div className="space-y-1">
+              <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                Topic / Subtopic
+              </label>
+              <select
+                value={selectedTopicId}
+                onChange={(e) => setSelectedTopicId(e.target.value)}
+                className={`w-full px-3 py-2 border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-xs font-semibold rounded-xl text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 ${accentColor} transition-all`}
+              >
+                <option value="">All Topics</option>
+                {filteredTopicsList.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.title}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
-
-          {/* Grade / Class Filter */}
-          <div className="space-y-1">
-            <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider">
-              Grade / Class
-            </label>
-            <select
-              value={selectedClassId}
-              onChange={(e) => {
-                setSelectedClassId(e.target.value);
-                setSelectedSubjectId(""); // Reset dependent filters
-                setSelectedTopicId("");
-              }}
-              className={`w-full px-3 py-2 border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-xs font-semibold rounded-xl text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 ${accentColor} transition-all`}
-            >
-              <option value="">All Grades</option>
-              {classes.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Subject Filter */}
-          <div className="space-y-1">
-            <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider">
-              Subject
-            </label>
-            <select
-              value={selectedSubjectId}
-              onChange={(e) => {
-                setSelectedSubjectId(e.target.value);
-                setSelectedTopicId(""); // Reset dependent filters
-              }}
-              className={`w-full px-3 py-2 border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-xs font-semibold rounded-xl text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 ${accentColor} transition-all`}
-            >
-              <option value="">All Subjects</option>
-              {filteredSubjectsList.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.title}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Topic / Subtopic Filter */}
-          <div className="space-y-1">
-            <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider">
-              Topic / Subtopic
-            </label>
-            <select
-              value={selectedTopicId}
-              onChange={(e) => setSelectedTopicId(e.target.value)}
-              className={`w-full px-3 py-2 border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-xs font-semibold rounded-xl text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 ${accentColor} transition-all`}
-            >
-              <option value="">All Topics</option>
-              {filteredTopicsList.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.title}
-                </option>
-              ))}
-            </select>
-          </div>
         </div>
-      </div>
+      )}
 
       {/* ── LESSONS TABLE VIEW ─────────────────────────────────────── */}
       <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
