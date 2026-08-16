@@ -237,8 +237,8 @@ export async function upsertLessonAction(
     revalidatePath("/admin/lessons");
     revalidatePath("/dashboard");
     return { success: true };
-  } catch (err) {
+  } catch (err: any) {
     console.error("Failed to upsert lesson:", err);
-    return { success: false, error: "Failed to save lesson content." };
+    return { success: false, error: err.message || "Failed to save lesson content." };
   }
 }
