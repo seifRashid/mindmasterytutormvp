@@ -22,7 +22,7 @@ import {
   lessonProgress as dbProgress,
   quizAttempts as dbAttempts,
 } from "@/db/schema";
-import { eq, and, inArray } from "drizzle-orm";
+import { eq, and, inArray, isNull } from "drizzle-orm";
 import { toUuid } from "@/lib/id-mapper";
 
 // Helper function to calculate calendar streak
@@ -127,7 +127,12 @@ export default async function StudentDashboardPage() {
       const lessonsList = await db
         .select()
         .from(dbLessons)
-        .where(inArray(dbLessons.topicId, topicIds))
+        .where(
+          and(
+            inArray(dbLessons.topicId, topicIds),
+            isNull(dbLessons.deletedAt)
+          )
+        )
         .orderBy(dbLessons.orderNumber);
 
       if (lessonsList.length > 0) {

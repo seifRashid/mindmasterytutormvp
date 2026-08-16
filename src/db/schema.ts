@@ -128,6 +128,7 @@ export const lessons = pgTable(
     duration: integer("duration").default(0).notNull(),
     orderNumber: integer("order_number").default(1).notNull(),
     lessonQuizId: uuid("lesson_quiz_id"),       // FK set after quiz creation
+    deletedAt: timestamp("deleted_at"),         // Null if active, set if in recycle bin
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => ({

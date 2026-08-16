@@ -13,12 +13,15 @@ import {
 import { Navbar } from "@/components/layout/Navbar";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { getSession } from "@/lib/auth";
+import { INITIAL_SUBJECTS } from "@/lib/mock-data";
+import { db } from "@/db";
 import {
-  INITIAL_LESSONS,
-  INITIAL_QUIZZES,
-  INITIAL_SUBJECTS,
-  INITIAL_TOPICS,
-} from "@/lib/mock-data";
+  topics as dbTopics,
+  lessons as dbLessons,
+  quizzes as dbQuizzes,
+} from "@/db/schema";
+import { eq, and, inArray, isNull } from "drizzle-orm";
+import { toUuid } from "@/lib/id-mapper";
 
 export default async function SubjectDetailPage({
   params,
@@ -31,7 +34,33 @@ export default async function SubjectDetailPage({
   const subject = INITIAL_SUBJECTS.find((s) => s.slug === subjectSlug);
   if (!subject) notFound();
 
-  const topics = INITIAL_TOPICS.filter((t) => t.subjectId === subject.id);
+  const subjectUuid = toUuid(subject.id);
+
+  // Fetch topics for this subject
+  const topics = await db
+    .select()
+    .from(dbTopics)
+    .where(eq(dbTopics.subjectId, subjectUuid))
+    .orderBy(dbTopics.orderNumber);
+
+  const topicIds = topics.map((t) => t.id);
+
+  // Fetch non-deleted lessons for these topics
+  const lessonsList = topicIds.length > 0
+    ? await db
+        .select()
+        .from(dbLessons)
+        .where(and(inArray(dbLessons.topicId, topicIds), isNull(dbLessons.deletedAt)))
+        .orderBy(dbLessons.orderNumber)
+    : [];
+
+  // Fetch quizzes for these topics
+  const quizzesList = topicIds.length > 0
+    ? await db
+        .select()
+        .from(dbQuizzes)
+        .where(inArray(dbQuizzes.topicId, topicIds))
+    : [];
 
   return (
     <div className="min-h-screen bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-white flex flex-col">
@@ -72,8 +101,8 @@ export default async function SubjectDetailPage({
 
             <div className="space-y-6">
               {topics.map((topic, index) => {
-                const topicLessons = INITIAL_LESSONS.filter((l) => l.topicId === topic.id);
-                const topicQuiz = INITIAL_QUIZZES.find((q) => q.topicId === topic.id);
+                const topicLessons = lessonsList.filter((l) => l.topicId === topic.id);
+                const topicQuiz = quizzesList.find((q) => q.topicId === topic.id);
 
                 return (
                   <div

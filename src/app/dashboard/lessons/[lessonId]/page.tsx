@@ -6,17 +6,18 @@ import { Sidebar } from "@/components/layout/Sidebar";
 import { LessonViewer } from "@/components/student/LessonViewer";
 import { getSession } from "@/lib/auth";
 import { db } from "@/db";
-import { lessonProgress } from "@/db/schema";
-import { and, eq } from "drizzle-orm";
-import { toUuid } from "@/lib/id-mapper";
 import {
-  INITIAL_LESSONS,
-  INITIAL_QUIZZES,
-  INITIAL_QUESTIONS,
-  INITIAL_SUBJECTS,
-  INITIAL_TOPICS,
-  INITIAL_CLASSES,
-} from "@/lib/mock-data";
+  lessonProgress,
+  lessons as dbLessons,
+  topics as dbTopics,
+  subjects as dbSubjects,
+  classes as dbClasses,
+  quizzes as dbQuizzes,
+  questions as dbQuestions,
+  answers as dbAnswers,
+} from "@/db/schema";
+import { and, eq, inArray, isNull } from "drizzle-orm";
+import { toUuid } from "@/lib/id-mapper";
 
 export default async function LessonPage({
   params,
@@ -28,6 +29,14 @@ export default async function LessonPage({
 
   const userUuid = session ? toUuid(session.id) : null;
   const lessonUuid = toUuid(lessonId);
+
+  // Fetch lesson details from database
+  const lessonResult = await db
+    .select()
+    .from(dbLessons)
+    .where(and(eq(dbLessons.id, lessonUuid), isNull(dbLessons.deletedAt)));
+  if (lessonResult.length === 0) notFound();
+  const lesson = lessonResult[0];
 
   let progressRecord = null;
   if (userUuid) {
@@ -46,32 +55,83 @@ export default async function LessonPage({
   const initialVideoCompleted = progressRecord?.videoCompleted ?? false;
   const initialMaterialsCompleted = progressRecord?.materialsCompleted ?? false;
 
-  const lesson = INITIAL_LESSONS.find((l) => l.id === lessonId);
-  if (!lesson) notFound();
+  // Fetch topic, subject, and class level from DB
+  let topic = null;
+  let subject = null;
+  let classLevel = null;
+  if (lesson.topicId) {
+    const topicResult = await db.select().from(dbTopics).where(eq(dbTopics.id, lesson.topicId));
+    if (topicResult.length > 0) {
+      topic = topicResult[0];
+      if (topic.subjectId) {
+        const subjectResult = await db.select().from(dbSubjects).where(eq(dbSubjects.id, topic.subjectId));
+        if (subjectResult.length > 0) {
+          subject = subjectResult[0];
+          if (subject.classId) {
+            const classResult = await db.select().from(dbClasses).where(eq(dbClasses.id, subject.classId));
+            if (classResult.length > 0) {
+              classLevel = classResult[0];
+            }
+          }
+        }
+      }
+    }
+  }
 
-  const topic = INITIAL_TOPICS.find((t) => t.id === lesson.topicId);
-  const subject = topic ? INITIAL_SUBJECTS.find((s) => s.id === topic.subjectId) : null;
-  const classLevel = subject ? INITIAL_CLASSES.find((c) => c.id === subject.classId) : null;
+  // Fetch lesson-level inline quiz
+  let lessonQuiz = null;
+  let lessonQuizQuestions: any[] = [];
+  if (lesson.lessonQuizId) {
+    const quizResult = await db.select().from(dbQuizzes).where(eq(dbQuizzes.id, lesson.lessonQuizId));
+    if (quizResult.length > 0) {
+      lessonQuiz = quizResult[0];
+      const questionsList = await db
+        .select()
+        .from(dbQuestions)
+        .where(eq(dbQuestions.quizId, lessonQuiz.id))
+        .orderBy(dbQuestions.orderNumber);
 
-  // Lesson-level inline quiz
-  const lessonQuiz = lesson.lessonQuizId
-    ? INITIAL_QUIZZES.find((q) => q.id === lesson.lessonQuizId) ?? null
-    : null;
-  const lessonQuizQuestions = lessonQuiz
-    ? INITIAL_QUESTIONS.filter((q) => q.quizId === lessonQuiz.id)
-    : [];
+      if (questionsList.length > 0) {
+        const questionIds = questionsList.map((q) => q.id);
+        const answersList = await db
+          .select()
+          .from(dbAnswers)
+          .where(inArray(dbAnswers.questionId, questionIds));
+
+        lessonQuizQuestions = questionsList.map((q) => ({
+          ...q,
+          answers: answersList.filter((a) => a.questionId === q.id),
+        }));
+      }
+    }
+  }
 
   // Topic-level quiz (for navigation link at the end)
-  const topicQuiz = topic
-    ? INITIAL_QUIZZES.find((q) => q.topicId === topic.id) ?? null
-    : null;
+  let topicQuiz = null;
+  if (topic) {
+    const topicQuizResult = await db
+      .select()
+      .from(dbQuizzes)
+      .where(and(eq(dbQuizzes.topicId, topic.id), isNull(dbQuizzes.lessonId)));
+    if (topicQuizResult.length > 0) {
+      topicQuiz = topicQuizResult[0];
+    }
+  }
 
   // Sibling lessons for prev/next
-  const topicLessons = INITIAL_LESSONS.filter((l) => l.topicId === lesson.topicId)
-    .sort((a, b) => a.orderNumber - b.orderNumber);
-  const currentIndex = topicLessons.findIndex((l) => l.id === lesson.id);
-  const prevLesson = currentIndex > 0 ? topicLessons[currentIndex - 1] : null;
-  const nextLesson = currentIndex < topicLessons.length - 1 ? topicLessons[currentIndex + 1] : null;
+  let prevLesson = null;
+  let nextLesson = null;
+  if (topic) {
+    const topicLessons = await db
+      .select()
+      .from(dbLessons)
+      .where(and(eq(dbLessons.topicId, topic.id), isNull(dbLessons.deletedAt)))
+      .orderBy(dbLessons.orderNumber);
+
+    const currentIndex = topicLessons.findIndex((l) => l.id === lesson.id);
+    prevLesson = currentIndex > 0 ? topicLessons[currentIndex - 1] : null;
+    nextLesson = currentIndex < topicLessons.length - 1 ? topicLessons[currentIndex + 1] : null;
+  }
 
   return (
     <div className="min-h-screen bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-white flex flex-col">
@@ -120,8 +180,8 @@ export default async function LessonPage({
 
           {/* 4-tab lesson viewer */}
           <LessonViewer
-            lesson={lesson}
-            quiz={lessonQuiz}
+            lesson={lesson as any}
+            quiz={lessonQuiz as any}
             questions={lessonQuizQuestions}
             prevLessonId={prevLesson?.id}
             nextLessonId={nextLesson?.id}

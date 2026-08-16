@@ -17,7 +17,7 @@ import {
   lessonProgress as dbProgress,
   quizAttempts as dbAttempts,
 } from "@/db/schema";
-import { eq, and, inArray } from "drizzle-orm";
+import { eq, and, inArray, isNull } from "drizzle-orm";
 import { toUuid } from "@/lib/id-mapper";
 import { redirect } from "next/navigation";
 
@@ -140,7 +140,12 @@ export default async function StudentProgressPage() {
       const lessonsList = await db
         .select()
         .from(dbLessons)
-        .where(inArray(dbLessons.topicId, topicIds));
+        .where(
+          and(
+            inArray(dbLessons.topicId, topicIds),
+            isNull(dbLessons.deletedAt)
+          )
+        );
 
       if (lessonsList.length > 0) {
         const lessonIds = lessonsList.map((l) => l.id);
