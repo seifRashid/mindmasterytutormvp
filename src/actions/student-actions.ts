@@ -9,14 +9,20 @@ import {
   quizzes as dbQuizzes,
   questions as dbQuestions,
   answers as dbAnswers,
+  lessons as dbLessons,
+  lessonAttachments as dbAttachments,
 } from "@/db/schema";
 import { eq, and, inArray } from "drizzle-orm";
 import { toUuid } from "@/lib/id-mapper";
 
 export async function updateLessonProgressAction(
   lessonId: string,
-  watchedDuration: number,
-  completed: boolean
+  updates: {
+    watchedDuration?: number;
+    notesCompleted?: boolean;
+    videoCompleted?: boolean;
+    materialsCompleted?: boolean;
+  }
 ) {
   const session = await getSession();
   const userId = session ? session.id : "user-student-1";
@@ -24,29 +30,72 @@ export async function updateLessonProgressAction(
   const userUuid = toUuid(userId);
   const lessonUuid = toUuid(lessonId);
 
-  let progressRecord = null;
   try {
     const existing = await db
       .select()
       .from(dbProgress)
       .where(and(eq(dbProgress.userId, userUuid), eq(dbProgress.lessonId, lessonUuid)));
     
+    // Fetch lesson details to know what contents it has
+    const [lesson] = await db.select().from(dbLessons).where(eq(dbLessons.id, lessonUuid));
+    const hasVideo = !!lesson?.videoUrl;
+    const hasNotes = !!lesson?.richContent;
+    
+    // Fetch attachments to check if it has materials
+    const attachmentsList = await db
+      .select()
+      .from(dbAttachments)
+      .where(eq(dbAttachments.lessonId, lessonUuid));
+    const hasMaterials = attachmentsList.length > 0;
+
     if (existing.length > 0) {
-      progressRecord = existing[0];
+      const record = existing[0];
+      
+      const newWatched = updates.watchedDuration !== undefined 
+        ? Math.max(record.watchedDuration, updates.watchedDuration)
+        : record.watchedDuration;
+        
+      const newNotes = updates.notesCompleted !== undefined ? updates.notesCompleted : record.notesCompleted;
+      const newVideo = updates.videoCompleted !== undefined ? updates.videoCompleted : record.videoCompleted;
+      const newMaterials = updates.materialsCompleted !== undefined ? updates.materialsCompleted : record.materialsCompleted;
+
+      // Determine overall completion: all present types must be completed
+      const isNotesDone = !hasNotes || newNotes;
+      const isVideoDone = !hasVideo || newVideo;
+      const isMaterialsDone = !hasMaterials || newMaterials;
+      const completedVal = isNotesDone && isVideoDone && isMaterialsDone;
+
       await db
         .update(dbProgress)
         .set({
-          watchedDuration: Math.max(progressRecord.watchedDuration, watchedDuration),
-          completed: completed || progressRecord.completed,
+          watchedDuration: newWatched,
+          notesCompleted: newNotes,
+          videoCompleted: newVideo,
+          materialsCompleted: newMaterials,
+          completed: completedVal,
           updatedAt: new Date(),
         })
-        .where(eq(dbProgress.id, progressRecord.id));
+        .where(eq(dbProgress.id, record.id));
     } else {
+      const newNotes = updates.notesCompleted ?? false;
+      const newVideo = updates.videoCompleted ?? false;
+      const newMaterials = updates.materialsCompleted ?? false;
+      const newWatched = updates.watchedDuration ?? 0;
+
+      // Determine overall completion: all present types must be completed
+      const isNotesDone = !hasNotes || newNotes;
+      const isVideoDone = !hasVideo || newVideo;
+      const isMaterialsDone = !hasMaterials || newMaterials;
+      const completedVal = isNotesDone && isVideoDone && isMaterialsDone;
+
       await db.insert(dbProgress).values({
         userId: userUuid,
         lessonId: lessonUuid,
-        completed,
-        watchedDuration,
+        completed: completedVal,
+        notesCompleted: newNotes,
+        videoCompleted: newVideo,
+        materialsCompleted: newMaterials,
+        watchedDuration: newWatched,
         updatedAt: new Date(),
       });
     }

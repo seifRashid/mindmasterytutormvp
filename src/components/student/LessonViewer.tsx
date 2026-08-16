@@ -38,6 +38,9 @@ interface LessonViewerProps {
   topicQuizId?: string;
   initialCompleted?: boolean;
   initialDuration?: number;
+  initialNotesCompleted?: boolean;
+  initialVideoCompleted?: boolean;
+  initialMaterialsCompleted?: boolean;
 }
 
 const ATTACHMENT_ICONS: Record<AttachmentType, React.ElementType> = {
@@ -324,15 +327,37 @@ export function LessonViewer({
   topicQuizId,
   initialCompleted = false,
   initialDuration = 0,
+  initialNotesCompleted = false,
+  initialVideoCompleted = false,
+  initialMaterialsCompleted = false,
 }: LessonViewerProps) {
+  const [notesCompleted, setNotesCompleted] = useState(initialNotesCompleted);
+  const [videoCompleted, setVideoCompleted] = useState(initialVideoCompleted);
+  const [materialsCompleted, setMaterialsCompleted] = useState(initialMaterialsCompleted);
   const [completed, setCompleted] = useState(initialCompleted);
   const [isSaving, setIsSaving] = useState(false);
 
-  const updateProgress = async (watchedDuration: number, completedStatus: boolean) => {
+  const updateProgress = async (fields: {
+    watchedDuration?: number;
+    notesCompleted?: boolean;
+    videoCompleted?: boolean;
+    materialsCompleted?: boolean;
+  }) => {
     setIsSaving(true);
-    setCompleted(completedStatus);
+    
+    // Optimistic UI updates
+    if (fields.notesCompleted !== undefined) setNotesCompleted(fields.notesCompleted);
+    if (fields.videoCompleted !== undefined) setVideoCompleted(fields.videoCompleted);
+    if (fields.materialsCompleted !== undefined) setMaterialsCompleted(fields.materialsCompleted);
+
     try {
-      await updateLessonProgressAction(lesson.id, watchedDuration, completedStatus);
+      const res = await updateLessonProgressAction(lesson.id, fields);
+      if (res.success && res.progress) {
+        setNotesCompleted(res.progress.notesCompleted);
+        setVideoCompleted(res.progress.videoCompleted);
+        setMaterialsCompleted(res.progress.materialsCompleted);
+        setCompleted(res.progress.completed);
+      }
     } catch (err) {
       console.error("Failed to update progress:", err);
     } finally {
@@ -340,8 +365,12 @@ export function LessonViewer({
     }
   };
 
-  const handleToggleComplete = () => {
-    updateProgress(0, !completed);
+  const handleToggleNotesComplete = () => {
+    updateProgress({ notesCompleted: !notesCompleted });
+  };
+
+  const handleToggleMaterialsComplete = () => {
+    updateProgress({ materialsCompleted: !materialsCompleted });
   };
 
   // Decide default tab: Notes if there's content, otherwise Video
@@ -385,11 +414,28 @@ export function LessonViewer({
       {activeTab === "notes" && (
         <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
           {lesson.richContent ? (
-            <div className="p-6">
-              <div
-                className="rte-content text-slate-900 dark:text-slate-100 text-sm leading-7"
-                dangerouslySetInnerHTML={{ __html: lesson.richContent }}
-              />
+            <div>
+              <div className="p-6">
+                <div
+                  className="rte-content text-slate-900 dark:text-slate-100 text-sm leading-7"
+                  dangerouslySetInnerHTML={{ __html: lesson.richContent }}
+                />
+              </div>
+              <div className="p-4 bg-slate-50 dark:bg-slate-950/40 border-t border-slate-200 dark:border-slate-800 flex justify-end">
+                <button
+                  onClick={handleToggleNotesComplete}
+                  disabled={isSaving}
+                  style={{ touchAction: "manipulation" }}
+                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold shadow-sm transition-all active:scale-[0.98] select-none ${
+                    notesCompleted
+                      ? "bg-emerald-600 text-white hover:bg-emerald-500"
+                      : "bg-blue-600 hover:bg-blue-700 text-white"
+                  }`}
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  {notesCompleted ? "Notes Completed ✓" : "Mark Notes as Completed"}
+                </button>
+              </div>
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center py-16 text-slate-400">
@@ -408,10 +454,15 @@ export function LessonViewer({
           {lesson.videoUrl ? (
             <VideoPlayer
               lesson={lesson}
-              completed={completed}
+              completed={videoCompleted}
               isSaving={isSaving}
               initialDuration={initialDuration}
-              updateProgress={updateProgress}
+              updateProgress={async (duration, complete) => {
+                await updateProgress({
+                  watchedDuration: duration,
+                  videoCompleted: complete,
+                });
+              }}
             />
           ) : (
             <div className="flex flex-col items-center justify-center py-20 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-700 text-slate-400">
@@ -457,6 +508,21 @@ export function LessonViewer({
                   </a>
                 );
               })}
+              <div className="flex justify-end pt-3">
+                <button
+                  onClick={handleToggleMaterialsComplete}
+                  disabled={isSaving}
+                  style={{ touchAction: "manipulation" }}
+                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold shadow-sm transition-all active:scale-[0.98] select-none ${
+                    materialsCompleted
+                      ? "bg-emerald-600 text-white hover:bg-emerald-500"
+                      : "bg-blue-600 hover:bg-blue-700 text-white"
+                  }`}
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  {materialsCompleted ? "Materials Completed ✓" : "Mark Materials as Completed"}
+                </button>
+              </div>
             </>
           ) : (
             <div className="flex flex-col items-center justify-center py-16 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-700 text-slate-400">
@@ -472,7 +538,7 @@ export function LessonViewer({
       {activeTab === "quiz" && (
         <div>
           {quiz ? (
-            <InlineQuiz quiz={quiz} questions={questions} onPass={() => updateProgress(0, true)} />
+            <InlineQuiz quiz={quiz} questions={questions} onPass={() => updateProgress({})} />
           ) : topicQuizId ? (
             <div className="flex flex-col items-center justify-center py-16 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 gap-4">
               <HelpCircle className="w-10 h-10 text-blue-500" />
@@ -509,20 +575,6 @@ export function LessonViewer({
         ) : (
           <div />
         )}
-
-        {/* Dynamic Mark Complete Button visible from all tabs */}
-        <button
-          onClick={handleToggleComplete}
-          disabled={isSaving}
-          className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold shadow-sm transition-all active:scale-[0.98] select-none ${
-            completed
-              ? "bg-emerald-600 text-white hover:bg-emerald-500"
-              : "bg-slate-200 dark:bg-slate-800 text-slate-800 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-600"
-          }`}
-        >
-          <CheckCircle2 className="w-4 h-4" />
-          {completed ? "Lesson Completed ✓" : "Mark Lesson Complete"}
-        </button>
 
         {nextLessonId ? (
           <Link

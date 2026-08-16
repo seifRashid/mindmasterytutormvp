@@ -42,6 +42,9 @@ export default async function LessonPage({
 
   const initialCompleted = progressRecord?.completed ?? false;
   const initialDuration = progressRecord?.watchedDuration ?? 0;
+  const initialNotesCompleted = progressRecord?.notesCompleted ?? false;
+  const initialVideoCompleted = progressRecord?.videoCompleted ?? false;
+  const initialMaterialsCompleted = progressRecord?.materialsCompleted ?? false;
 
   const lesson = INITIAL_LESSONS.find((l) => l.id === lessonId);
   if (!lesson) notFound();
@@ -125,6 +128,9 @@ export default async function LessonPage({
             topicQuizId={topicQuiz?.id}
             initialCompleted={initialCompleted}
             initialDuration={initialDuration}
+            initialNotesCompleted={initialNotesCompleted}
+            initialVideoCompleted={initialVideoCompleted}
+            initialMaterialsCompleted={initialMaterialsCompleted}
           />
         </main>
       </div>

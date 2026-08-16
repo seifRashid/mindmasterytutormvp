@@ -241,6 +241,9 @@ export const lessonProgress = pgTable(
       .notNull()
       .references(() => lessons.id, { onDelete: "cascade" }),
     completed: boolean("completed").default(false).notNull(),
+    notesCompleted: boolean("notes_completed").default(false).notNull(),
+    videoCompleted: boolean("video_completed").default(false).notNull(),
+    materialsCompleted: boolean("materials_completed").default(false).notNull(),
     watchedDuration: integer("watched_duration").default(0).notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
