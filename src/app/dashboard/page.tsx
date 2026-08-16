@@ -130,7 +130,8 @@ export default async function StudentDashboardPage() {
         .where(
           and(
             inArray(dbLessons.topicId, topicIds),
-            isNull(dbLessons.deletedAt)
+            isNull(dbLessons.deletedAt),
+            eq(dbLessons.status, "published")
           )
         )
         .orderBy(dbLessons.orderNumber);

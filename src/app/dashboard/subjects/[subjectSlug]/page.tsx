@@ -50,7 +50,13 @@ export default async function SubjectDetailPage({
     ? await db
         .select()
         .from(dbLessons)
-        .where(and(inArray(dbLessons.topicId, topicIds), isNull(dbLessons.deletedAt)))
+        .where(
+          and(
+            inArray(dbLessons.topicId, topicIds),
+            isNull(dbLessons.deletedAt),
+            eq(dbLessons.status, "published")
+          )
+        )
         .orderBy(dbLessons.orderNumber)
     : [];
 

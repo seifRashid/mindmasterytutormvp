@@ -34,7 +34,13 @@ export default async function LessonPage({
   const lessonResult = await db
     .select()
     .from(dbLessons)
-    .where(and(eq(dbLessons.id, lessonUuid), isNull(dbLessons.deletedAt)));
+    .where(
+      and(
+        eq(dbLessons.id, lessonUuid),
+        isNull(dbLessons.deletedAt),
+        eq(dbLessons.status, "published")
+      )
+    );
   if (lessonResult.length === 0) notFound();
   const lesson = lessonResult[0];
 

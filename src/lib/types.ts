@@ -73,6 +73,7 @@ export interface Lesson {
   orderNumber: number;
   attachments?: LessonAttachment[];
   lessonQuizId?: string;
+  status?: "published" | "draft";
   createdAt: string;
 }
 

@@ -2,6 +2,8 @@
 
 import dynamic from "next/dynamic";
 import { useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
+import { upsertLessonAction } from "@/actions/teacher-actions";
 import {
   FileText,
   Video,
@@ -263,12 +265,14 @@ function QuestionCard({
 export function LessonBuilder({ lesson, quiz, questions: initialQuestions, topics }: LessonBuilderProps) {
   const [activeTab, setActiveTab] = useState<Tab>("content");
   const [saved, setSaved] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   // Content tab state
   const [title, setTitle] = useState(lesson.title);
   const [topicId, setTopicId] = useState(lesson.topicId);
   const [description, setDescription] = useState(lesson.description);
   const [richContent, setRichContent] = useState(lesson.richContent ?? "");
+  const [status, setStatus] = useState<"published" | "draft">(lesson.status ?? "published");
 
   // Video tab state
   const [videoUrl, setVideoUrl] = useState(lesson.videoUrl ?? "");
@@ -341,11 +345,73 @@ export function LessonBuilder({ lesson, quiz, questions: initialQuestions, topic
     ]);
   };
 
-  const handleSave = useCallback(() => {
-    // In production this would call a server action
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
-  }, []);
+  const handleSave = useCallback(async () => {
+    setIsSaving(true);
+    try {
+      const result = await upsertLessonAction(lesson.id, {
+        topicId,
+        title,
+        description,
+        richContent,
+        videoUrl,
+        duration: Number(duration) * 60 || 0,
+        status,
+        attachments: attachments.map((a) => ({
+          name: a.name,
+          url: a.url,
+          type: a.type,
+          orderNumber: a.orderNumber,
+        })),
+        quiz: hasQuiz
+          ? {
+              title: quizTitle,
+              passingScore,
+              timeLimitMinutes: timeLimit,
+              showFeedback,
+              questions: quizQuestions.map((q) => ({
+                id: q.id,
+                type: q.type,
+                question: q.question,
+                explanation: q.explanation,
+                orderNumber: q.orderNumber,
+                answers: q.answers.map((a) => ({
+                  answer: a.answer,
+                  isCorrect: a.isCorrect,
+                })),
+              })),
+            }
+          : undefined,
+      });
+
+      if (result.success) {
+        setSaved(true);
+        setTimeout(() => setSaved(false), 2000);
+      } else {
+        alert(result.error || "Failed to save lesson");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("An unexpected error occurred while saving the lesson.");
+    } finally {
+      setIsSaving(false);
+    }
+  }, [
+    lesson.id,
+    topicId,
+    title,
+    description,
+    richContent,
+    videoUrl,
+    duration,
+    status,
+    attachments,
+    hasQuiz,
+    quizTitle,
+    passingScore,
+    timeLimit,
+    showFeedback,
+    quizQuestions,
+  ]);
 
   const TABS: { key: Tab; label: string; icon: React.ElementType }[] = [
     { key: "content", label: "📖 Notes", icon: FileText },
@@ -364,16 +430,43 @@ export function LessonBuilder({ lesson, quiz, questions: initialQuestions, topic
             {title || "Untitled Lesson"}
           </h1>
         </div>
-        <button
-          onClick={handleSave}
-          className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold shadow-md transition-all ${
-            saved
-              ? "bg-emerald-500 text-white"
-              : "bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/30"
-          }`}
-        >
-          {saved ? <><Check className="w-4 h-4" /> Saved!</> : "Save Lesson"}
-        </button>
+        
+        <div className="flex items-center gap-3 self-start md:self-center">
+          {/* Status select dropdown */}
+          <div className="flex items-center gap-1.5 px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl">
+            <span className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+              Status:
+            </span>
+            <select
+              value={status}
+              onChange={(e) => setStatus(e.target.value as "published" | "draft")}
+              className="bg-transparent text-xs font-bold text-slate-700 dark:text-slate-200 focus:outline-none cursor-pointer"
+            >
+              <option value="published">🟢 Published</option>
+              <option value="draft">🟡 Draft</option>
+            </select>
+          </div>
+
+          <button
+            onClick={handleSave}
+            disabled={isSaving}
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold shadow-md transition-all cursor-pointer ${
+              saved
+                ? "bg-emerald-500 text-white"
+                : "bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/30 active:scale-95"
+            }`}
+          >
+            {saved ? (
+              <>
+                <Check className="w-4 h-4" /> Saved!
+              </>
+            ) : isSaving ? (
+              "Saving..."
+            ) : (
+              "Save Lesson"
+            )}
+          </button>
+        </div>
       </div>
 
       {/* Tab Navigation */}

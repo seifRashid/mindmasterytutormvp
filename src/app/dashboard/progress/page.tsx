@@ -143,7 +143,8 @@ export default async function StudentProgressPage() {
         .where(
           and(
             inArray(dbLessons.topicId, topicIds),
-            isNull(dbLessons.deletedAt)
+            isNull(dbLessons.deletedAt),
+            eq(dbLessons.status, "published")
           )
         );
 

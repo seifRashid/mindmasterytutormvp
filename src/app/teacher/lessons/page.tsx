@@ -29,10 +29,15 @@ export default async function TeacherLessonsPage({
 
   // 2. Fetch data from DB
   const allLessons = await db.select().from(dbLessons);
-  const activeLessons = allLessons.filter((l) => !l.deletedAt);
+  const activeLessons = allLessons.filter((l) => !l.deletedAt && l.status === "published");
+  const draftLessons = allLessons.filter((l) => !l.deletedAt && l.status === "draft");
   const recycleLessons = allLessons.filter((l) => !!l.deletedAt);
 
-  const displayedLessons = isRecycleBin ? recycleLessons : activeLessons;
+  const displayedLessons = isRecycleBin
+    ? recycleLessons
+    : view === "draft"
+    ? draftLessons
+    : activeLessons;
 
   const topicsList = await db.select().from(dbTopics);
   const subjectsList = await db.select().from(dbSubjects);
@@ -58,7 +63,7 @@ export default async function TeacherLessonsPage({
                 Create and edit lesson notes, videos, materials, and quizzes for your students.
               </p>
             </div>
-            {!isRecycleBin && (
+            {view !== "recycle" && (
               <Link
                 href="/teacher/lessons/new"
                 className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold shadow-md shadow-indigo-500/20 transition-all self-start sm:self-center cursor-pointer select-none"
@@ -74,7 +79,7 @@ export default async function TeacherLessonsPage({
             <Link
               href="/teacher/lessons"
               className={`pb-3 font-semibold transition-all border-b-2 flex items-center gap-2 ${
-                !isRecycleBin
+                !view
                   ? "border-indigo-600 text-indigo-600 dark:text-indigo-400"
                   : "border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
               }`}
@@ -83,9 +88,20 @@ export default async function TeacherLessonsPage({
               Active Lessons ({activeLessons.length})
             </Link>
             <Link
+              href="/teacher/lessons?view=draft"
+              className={`pb-3 font-semibold transition-all border-b-2 flex items-center gap-2 ${
+                view === "draft"
+                  ? "border-amber-600 text-amber-600 dark:text-amber-400"
+                  : "border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+              }`}
+            >
+              <FileText className="w-4 h-4" />
+              Drafts ({draftLessons.length})
+            </Link>
+            <Link
               href="/teacher/lessons?view=recycle"
               className={`pb-3 font-semibold transition-all border-b-2 flex items-center gap-2 ${
-                isRecycleBin
+                view === "recycle"
                   ? "border-rose-600 text-rose-600 dark:text-rose-400"
                   : "border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
               }`}

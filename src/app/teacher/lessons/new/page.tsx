@@ -4,25 +4,31 @@ import { Navbar } from "@/components/layout/Navbar";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { LessonBuilder } from "@/components/admin/LessonBuilder";
 import { getSession } from "@/lib/auth";
-import { INITIAL_TOPICS, type Lesson } from "@/lib/mock-data";
+import { db } from "@/db";
+import { topics as dbTopics } from "@/db/schema";
+import { toUuid } from "@/lib/id-mapper";
 
 export default async function TeacherNewLessonPage() {
   const session = await getSession();
 
-  const newLesson: Lesson = {
-    id: `les-new-${Date.now()}`,
-    topicId: INITIAL_TOPICS[0]?.id || "top-1",
+  const allTopicsList = await db.select().from(dbTopics).orderBy(dbTopics.orderNumber);
+  const topicOptions = allTopicsList.map((t) => ({ id: t.id, title: t.title }));
+
+  const newLessonId = crypto.randomUUID();
+
+  const newLesson = {
+    id: newLessonId,
+    topicId: allTopicsList[0]?.id || "",
     title: "New Lesson",
     description: "Enter a brief summary for this lesson.",
     richContent: "<h2>Lesson Title</h2><p>Start writing notes here...</p>",
     videoUrl: "",
     duration: 600,
     orderNumber: 1,
+    status: "published" as const,
     attachments: [],
     createdAt: new Date().toISOString(),
   };
-
-  const topicOptions = INITIAL_TOPICS.map((t) => ({ id: t.id, title: t.title }));
 
   return (
     <div className="min-h-screen bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-white flex flex-col">
@@ -46,7 +52,7 @@ export default async function TeacherNewLessonPage() {
 
           {/* Lesson Builder */}
           <LessonBuilder
-            lesson={newLesson}
+            lesson={newLesson as any}
             topics={topicOptions}
           />
         </main>
