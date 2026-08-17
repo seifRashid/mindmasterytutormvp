@@ -16,6 +16,7 @@ import {
   Sparkles,
   X,
   Menu,
+  User,
 } from "lucide-react";
 
 interface SidebarProps {
@@ -47,6 +48,7 @@ export function Sidebar({ role }: SidebarProps) {
     { label: "Overview", href: "/dashboard", icon: LayoutDashboard },
     { label: "My Subjects", href: "/dashboard/subjects", icon: BookOpen },
     { label: "Learning Progress", href: "/dashboard/progress", icon: TrendingUp },
+    { label: "My Profile", href: "/dashboard/profile", icon: User },
   ];
 
   const adminLinks = [
@@ -58,6 +60,7 @@ export function Sidebar({ role }: SidebarProps) {
     { label: "Lessons", href: "/admin/lessons", icon: Video },
     { label: "Quizzes", href: "/admin/quizzes", icon: HelpCircle },
     { label: "User Accounts", href: "/admin/users", icon: Users },
+    { label: "My Profile", href: "/admin/profile", icon: User },
   ];
 
   const teacherLinks = [
@@ -65,6 +68,7 @@ export function Sidebar({ role }: SidebarProps) {
     { label: "Student Approvals", href: "/teacher/approvals", icon: Users },
     { label: "Manage Lessons", href: "/teacher/lessons", icon: Video },
     { label: "Manage Quizzes", href: "/teacher/quizzes", icon: HelpCircle },
+    { label: "My Profile", href: "/teacher/profile", icon: User },
   ];
 
   const links =
