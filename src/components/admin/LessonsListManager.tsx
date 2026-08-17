@@ -162,7 +162,7 @@ export function LessonsListManager({
       )}
 
       {/* ── LESSONS TABLE VIEW ─────────────────────────────────────── */}
-      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-x-auto">
         {filteredLessons.length === 0 ? (
           <div className="p-12 text-center text-slate-400 flex flex-col items-center justify-center">
             <Trash2 className="w-12 h-12 mb-3 text-slate-300 dark:text-slate-700" />
