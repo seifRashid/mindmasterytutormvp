@@ -24,7 +24,7 @@ export default async function StudentSubjectsPage() {
               Browse Classes & Subjects
             </h1>
             <p className="text-xs md:text-sm text-slate-500 mt-1">
-              Select a subject below to view topic progressions, HD video lessons, and interactive quizzes.
+              Select a subject below to view topic progressions, lessons, and interactive quizzes.
             </p>
           </div>
 

@@ -110,7 +110,7 @@ export default async function AdminDashboardPage() {
                 <ArrowUpRight className="w-4 h-4 text-slate-400 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
               </div>
               <p className="text-xl font-bold text-slate-900 dark:text-white">{INITIAL_LESSONS.length}</p>
-              <p className="text-[11px] text-slate-500 font-medium">Video Lessons</p>
+              <p className="text-[11px] text-slate-500 font-medium">Lessons</p>
             </Link>
 
             <Link

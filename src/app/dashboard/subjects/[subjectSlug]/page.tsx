@@ -135,7 +135,7 @@ export default async function SubjectDetailPage({
                     {/* Lessons List */}
                     <div className="space-y-2">
                       <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                        Video Lessons
+                        Lessons
                       </p>
                       {topicLessons.map((les) => (
                         <div

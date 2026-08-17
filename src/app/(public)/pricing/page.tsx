@@ -32,7 +32,7 @@ export default async function PricingPage() {
               <h3 className="text-2xl font-bold text-white">$0 <span className="text-xs font-normal text-slate-400">/ forever</span></h3>
               <p className="text-xs text-slate-400">Perfect for individual self-paced learning.</p>
               <ul className="space-y-2 text-xs text-slate-300">
-                <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-cyan-400" /> Unlimited Video Lessons</li>
+                <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-cyan-400" /> Unlimited Lessons</li>
                 <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-cyan-400" /> Interactive Topic Quizzes</li>
                 <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-cyan-400" /> 3-Fail Explanation Unlocks</li>
               </ul>
@@ -50,7 +50,7 @@ export default async function PricingPage() {
               <h3 className="text-2xl font-bold text-white">$19 <span className="text-xs font-normal text-slate-400">/ month</span></h3>
               <p className="text-xs text-slate-400">Ideal for educators, tutors, and classroom managers.</p>
               <ul className="space-y-2 text-xs text-slate-300">
-                <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-indigo-400" /> Custom Video Lesson Uploads</li>
+                <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-indigo-400" /> Custom Lesson Uploads</li>
                 <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-indigo-400" /> Custom Quiz & Question Builder</li>
                 <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-indigo-400" /> Student Analytics & Score Tracking</li>
               </ul>

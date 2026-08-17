@@ -17,7 +17,7 @@ export default function RegisterTeacherPage() {
             </div>
             <h1 className="text-2xl font-bold text-white">Teacher Registration</h1>
             <p className="text-xs text-slate-400">
-              Create an instructor account to manage video lessons, build quizzes, and monitor student progress.
+              Create an instructor account to manage lessons, build quizzes, and monitor student progress.
             </p>
           </div>
 

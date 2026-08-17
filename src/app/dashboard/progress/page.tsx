@@ -90,7 +90,7 @@ export default async function StudentProgressPage() {
 
   const userUuid = toUuid(currentUser.id);
 
-  // 1. Get Completed Video Lessons Count
+  // 1. Get Completed Lessons Count
   const completedProgress = await db
     .select()
     .from(dbProgress)
@@ -199,7 +199,7 @@ export default async function StudentProgressPage() {
               <p className="text-2xl font-black text-slate-900 dark:text-white">
                 {completedLessonsCount} {completedLessonsCount === 1 ? "Lesson" : "Lessons"}
               </p>
-              <p className="text-xs text-slate-500 font-medium">Completed Video Lessons</p>
+              <p className="text-xs text-slate-500 font-medium">Completed Lessons</p>
             </div>
 
             <div className="p-6 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-2">

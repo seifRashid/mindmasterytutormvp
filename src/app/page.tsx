@@ -40,7 +40,7 @@ export default async function HomePage() {
             </span>
           </h1>
           <p className="text-base sm:text-xl text-slate-400 max-w-2xl mx-auto font-normal leading-relaxed">
-            Mind Mastery Tutor gives students a clear learning path through HD video lessons,
+            Mind Mastery Tutor gives students a clear learning path through lessons,
             interactive topic progression, and automated quizzes with step-by-step retry explanations.
           </p>
 
@@ -132,9 +132,9 @@ export default async function HomePage() {
               <div className="w-10 h-10 rounded-xl bg-blue-950 border border-blue-800 text-blue-400 flex items-center justify-center font-bold">
                 <Video className="w-5 h-5" />
               </div>
-              <h3 className="text-lg font-bold text-white">Curated Video Lessons</h3>
+              <h3 className="text-lg font-bold text-white">Curated Lessons</h3>
               <p className="text-xs text-slate-400 leading-relaxed">
-                Step-by-step video instructions with automatic watched duration tracking and instant resume support.
+                Step-by-step instructions with automatic watched duration tracking and instant resume support.
               </p>
             </div>
 

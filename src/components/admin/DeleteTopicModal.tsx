@@ -91,7 +91,7 @@ export function DeleteTopicModal({ topic }: DeleteTopicModalProps) {
                     <p className="text-xs font-bold uppercase tracking-wider">Warning: Permanent Action</p>
                     <p className="text-xs leading-relaxed">
                       You are about to delete <strong className="text-slate-950 dark:text-white">&quot;{topic.title}&quot;</strong>. 
-                      Deleting this topic will permanently remove all associated **video lessons**, **attachments**, and **quizzes** from the platform.
+                      Deleting this topic will permanently remove all associated **lessons**, **attachments**, and **quizzes** from the platform.
                     </p>
                   </div>
                 </div>

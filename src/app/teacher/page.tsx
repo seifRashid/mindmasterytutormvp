@@ -27,7 +27,7 @@ export default async function TeacherDashboardPage() {
                 Welcome, {session?.name || "Prof. Alex Rivera"}! 🎓
               </h1>
               <p className="text-xs md:text-sm text-slate-300 max-w-xl leading-relaxed">
-                Upload video lessons, manage topic quizzes, and evaluate student accuracy metrics.
+                Upload lessons, manage topic quizzes, and evaluate student accuracy metrics.
               </p>
             </div>
 
@@ -50,9 +50,9 @@ export default async function TeacherDashboardPage() {
                 <Video className="w-5 h-5" />
               </div>
               <p className="text-2xl font-black text-slate-900 dark:text-white">
-                {INITIAL_LESSONS.length} Video Lessons
+                {INITIAL_LESSONS.length} Lessons
               </p>
-              <p className="text-xs text-slate-500 font-medium">Published Video Instructions</p>
+              <p className="text-xs text-slate-500 font-medium">Published Instructions</p>
             </div>
 
             <div className="p-6 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-3">
