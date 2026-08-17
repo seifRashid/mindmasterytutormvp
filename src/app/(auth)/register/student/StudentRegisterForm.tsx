@@ -9,9 +9,7 @@ import {
   User,
   Phone,
   Calendar,
-  Users,
   BookOpen,
-  UserCheck,
   FileText,
   ShieldAlert,
   AlertCircle,
@@ -163,78 +161,12 @@ export function StudentRegisterForm({ classes, registerAction }: StudentRegister
         </div>
       </div>
 
-      {/* ── SECTION 2: Parent / Guardian Information ───────────── */}
-      <div className="space-y-4">
-        <div className="flex items-center gap-2 border-b border-slate-800 pb-2">
-          <Users className="w-4 h-4 text-cyan-400" />
-          <h2 className="text-xs font-bold text-cyan-400 uppercase tracking-wider">
-            2. Parent / Guardian Details
-          </h2>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Parent Full Name */}
-          <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-              Parent / Guardian Full Name *
-            </label>
-            <div className="relative">
-              <UserCheck className="w-4 h-4 text-slate-500 absolute left-3.5 top-3" />
-              <input
-                name="parentName"
-                type="text"
-                required
-                disabled={isPending}
-                placeholder="Robert Kim"
-                className="w-full pl-10 pr-4 py-2.5 text-xs rounded-xl bg-slate-950 border border-slate-800 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 disabled:opacity-50"
-              />
-            </div>
-          </div>
-
-          {/* Parent Phone Number */}
-          <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-              Parent / Guardian Phone Number *
-            </label>
-            <div className="relative">
-              <Phone className="w-4 h-4 text-slate-500 absolute left-3.5 top-3" />
-              <input
-                name="parentPhone"
-                type="tel"
-                required
-                disabled={isPending}
-                placeholder="+1 (555) 987-6543"
-                className="w-full pl-10 pr-4 py-2.5 text-xs rounded-xl bg-slate-950 border border-slate-800 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 disabled:opacity-50"
-              />
-            </div>
-          </div>
-
-          {/* Parent Email (Optional) */}
-          <div className="md:col-span-2">
-            <label className="block text-xs font-semibold text-slate-300 mb-1.5 flex items-center justify-between">
-              <span>Parent / Guardian Email Address</span>
-              <span className="text-[10px] text-slate-500 font-normal">Optional</span>
-            </label>
-            <div className="relative">
-              <Mail className="w-4 h-4 text-slate-500 absolute left-3.5 top-3" />
-              <input
-                name="parentEmail"
-                type="email"
-                disabled={isPending}
-                placeholder="parent.kim@example.com"
-                className="w-full pl-10 pr-4 py-2.5 text-xs rounded-xl bg-slate-950 border border-slate-800 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 disabled:opacity-50"
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* ── SECTION 3: Security & Notes ───────────────────────── */}
+      {/* ── SECTION 2: Security & Notes ───────────────────────── */}
       <div className="space-y-4">
         <div className="flex items-center gap-2 border-b border-slate-800 pb-2">
           <Lock className="w-4 h-4 text-cyan-400" />
           <h2 className="text-xs font-bold text-cyan-400 uppercase tracking-wider">
-            3. Account Security & Institution Notes
+            2. Account Security & Institution Notes
           </h2>
         </div>
 
