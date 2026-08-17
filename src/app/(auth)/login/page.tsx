@@ -24,7 +24,18 @@ export default async function LoginPage() {
             </p>
           </div>
 
-
+          {/* Quick Demo Credentials Info Box */}
+          <div className="p-3.5 bg-blue-950/60 rounded-2xl border border-blue-800/60 text-xs space-y-1">
+            <p className="font-bold text-blue-300 flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+              Demo Test Credentials:
+            </p>
+            <div className="text-[11px] text-slate-300 space-y-0.5 font-mono">
+              <p>• Student: <span className="text-cyan-300">student@mindmastery.edu</span> / student123</p>
+              <p>• Teacher: <span className="text-cyan-300">teacher@mindmastery.edu</span> / teacher123</p>
+              <p>• Admin: <span className="text-cyan-300">admin@mindmastery.edu</span> / admin123</p>
+            </div>
+          </div>
 
           <LoginForm loginAction={loginAction} />
 
