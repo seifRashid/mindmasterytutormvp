@@ -4,11 +4,21 @@ import { CrudModal } from "@/components/admin/CrudModal";
 import { EditClassModal } from "@/components/admin/EditClassModal";
 import { DeleteClassModal } from "@/components/admin/DeleteClassModal";
 import { getSession } from "@/lib/auth";
-import { INITIAL_CLASSES } from "@/lib/mock-data";
 import { Layers } from "lucide-react";
+import { db } from "@/db";
+import { classes as dbClasses } from "@/db/schema";
+import { desc } from "drizzle-orm";
 
 export default async function AdminClassesPage() {
   const session = await getSession();
+
+  const dbClassesList = await db.select().from(dbClasses).orderBy(desc(dbClasses.createdAt));
+  const classesList = dbClassesList.map((cls) => ({
+    id: cls.id,
+    name: cls.name,
+    slug: cls.slug,
+    createdAt: cls.createdAt.toISOString(),
+  }));
 
   return (
     <div className="min-h-screen bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-white flex flex-col">
@@ -41,7 +51,7 @@ export default async function AdminClassesPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {INITIAL_CLASSES.map((cls) => (
+                {classesList.map((cls) => (
                   <tr key={cls.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-850">
                     <td className="p-4 font-bold text-slate-900 dark:text-white flex items-center gap-2">
                       <Layers className="w-4 h-4 text-blue-500" />
