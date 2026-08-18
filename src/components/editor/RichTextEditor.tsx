@@ -336,6 +336,7 @@ export function RichTextEditor({
   minHeight = 480,
 }: RichTextEditorProps) {
   const editorRef  = useRef<HTMLDivElement>(null);
+  const toolbarRef = useRef<HTMLDivElement>(null);
   const savedRange = useRef<Range | null>(null);
   const lastHtml   = useRef<string>(value);
   const mounted    = useRef(false);
@@ -530,7 +531,13 @@ export function RichTextEditor({
   }, [updateActive]);
 
   useEffect(() => {
-    const close = () => closeAllMenus();
+    const close = (e: MouseEvent) => {
+      // Only close menus when the click originated OUTSIDE the toolbar.
+      // Native mousedown fires before React's synthetic stopPropagation,
+      // so without this guard the menu would close the moment you open it.
+      if (toolbarRef.current && toolbarRef.current.contains(e.target as Node)) return;
+      closeAllMenus();
+    };
     document.addEventListener("mousedown", close);
     return () => document.removeEventListener("mousedown", close);
   }, [closeAllMenus]);
@@ -559,11 +566,16 @@ export function RichTextEditor({
 
   const toolbar = !readOnly && (
     <div
+      ref={toolbarRef}
       className="sticky top-0 z-10 border-b border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm flex-shrink-0"
       onMouseDown={(e) => e.stopPropagation()}
     >
       {/* ── Row 1: History | Block | Font | Size | Style | Color | Code | View | Fullscreen */}
-      <div className="flex items-center gap-0.5 px-2 py-1.5 min-w-max border-b border-slate-100 dark:border-slate-800/60 overflow-x-auto">
+      {/* IMPORTANT: overflow-x must be on a CHILD wrapper, not this div.                      */}
+      {/* Setting overflow-x:auto on the row itself implicitly sets overflow-y:auto too,        */}
+      {/* which clips absolutely-positioned dropdowns. The outer div must stay overflow-visible. */}
+      <div className="relative border-b border-slate-100 dark:border-slate-800/60">
+      <div className="flex items-center gap-0.5 px-2 py-1.5 overflow-x-auto">
 
         <Tip tip="Undo" shortcut="Ctrl+Z"><TBtn onClick={() => exec("undo")}><Undo2 className="w-3.5 h-3.5" /></TBtn></Tip>
         <Tip tip="Redo" shortcut="Ctrl+Y"><TBtn onClick={() => exec("redo")}><Redo2 className="w-3.5 h-3.5" /></TBtn></Tip>
@@ -680,9 +692,11 @@ export function RichTextEditor({
           </TBtn>
         </Tip>
       </div>
+      </div>
 
       {/* ── Row 2: Align | Lists+Indent | Insert | Edu Blocks | Clear */}
-      <div className="flex items-center gap-0.5 px-2 py-1.5 min-w-max overflow-x-auto">
+      <div className="relative">
+      <div className="flex items-center gap-0.5 px-2 py-1.5 overflow-x-auto">
 
         {/* Alignment */}
         <Tip tip="Align Left"><TBtn onClick={() => exec("justifyLeft")} active={active.justifyLeft}><AlignLeft className="w-3.5 h-3.5" /></TBtn></Tip>
@@ -743,6 +757,7 @@ export function RichTextEditor({
         {/* Clear Formatting */}
         <Tip tip="Clear Formatting"><TBtn onClick={() => exec("removeFormat")}><Eraser className="w-3.5 h-3.5" /></TBtn></Tip>
       </div>
+      </div>
     </div>
   );
 
@@ -754,7 +769,7 @@ export function RichTextEditor({
       {/* Document canvas - Edit */}
       {viewMode === "edit" && (
         <div className="mx-auto my-6 max-w-3xl px-4">
-          <div className="bg-white dark:bg-slate-900 shadow-lg rounded-xl relative overflow-hidden">
+          <div className="bg-white dark:bg-slate-900 shadow-lg rounded-xl relative">
             <div
               ref={editorRef}
               contentEditable={!readOnly}
@@ -780,7 +795,7 @@ export function RichTextEditor({
       {/* Document canvas - Preview */}
       {viewMode === "preview" && (
         <div className="mx-auto my-6 max-w-3xl px-4">
-          <div className="bg-white dark:bg-slate-900 shadow-lg rounded-xl overflow-hidden">
+          <div className="bg-white dark:bg-slate-900 shadow-lg rounded-xl">
             <div
               className="rte-content w-full px-10 py-8 text-slate-900 dark:text-slate-100"
               dangerouslySetInnerHTML={{ __html: lastHtml.current || `<p class="rte-placeholder">${placeholder}</p>` }}
@@ -827,7 +842,7 @@ export function RichTextEditor({
   return (
     <>
       {modal && <InsertModal type={modal} onClose={() => setModal(null)} onInsert={handleModalInsert} />}
-      <div className={["flex flex-col border border-slate-200 dark:border-slate-700 rounded-2xl overflow-hidden bg-white dark:bg-slate-900 shadow-sm",
+      <div className={["flex flex-col border border-slate-200 dark:border-slate-700 rounded-2xl bg-white dark:bg-slate-900 shadow-sm",
         isFullscreen ? "fixed inset-0 z-[9990] rounded-none border-none shadow-none" : ""].join(" ")}>
         {toolbar}
         {surface}
