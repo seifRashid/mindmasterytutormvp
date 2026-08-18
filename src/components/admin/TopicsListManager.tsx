@@ -118,11 +118,11 @@ export function TopicsListManager({ topics, subjects, classes }: TopicsListManag
                   setSelectedClassId(e.target.value);
                   setSelectedSubjectId(""); // Reset dependent filters
                 }}
-                className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-955 text-xs font-semibold rounded-xl text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-xs font-semibold rounded-xl text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
               >
-                <option value="">All Grades</option>
+                <option value="" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">All Grades</option>
                 {classes.map((c) => (
-                  <option key={c.id} value={c.id}>
+                  <option key={c.id} value={c.id} className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">
                     {c.name}
                   </option>
                 ))}
@@ -137,11 +137,11 @@ export function TopicsListManager({ topics, subjects, classes }: TopicsListManag
               <select
                 value={selectedSubjectId}
                 onChange={(e) => setSelectedSubjectId(e.target.value)}
-                className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-955 text-xs font-semibold rounded-xl text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-xs font-semibold rounded-xl text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
               >
-                <option value="">All Subjects</option>
+                <option value="" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">All Subjects</option>
                 {filteredSubjectsList.map((s) => (
-                  <option key={s.id} value={s.id}>
+                  <option key={s.id} value={s.id} className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">
                     {s.title}
                   </option>
                 ))}

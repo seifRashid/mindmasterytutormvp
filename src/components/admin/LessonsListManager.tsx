@@ -108,9 +108,9 @@ export function LessonsListManager({
                 }}
                 className={`w-full px-3 py-2 border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-xs font-semibold rounded-xl text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 ${accentColor} transition-all`}
               >
-                <option value="">All Grades</option>
+                <option value="" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">All Grades</option>
                 {classes.map((c) => (
-                  <option key={c.id} value={c.id}>
+                  <option key={c.id} value={c.id} className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">
                     {c.name}
                   </option>
                 ))}
@@ -130,9 +130,9 @@ export function LessonsListManager({
                 }}
                 className={`w-full px-3 py-2 border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-xs font-semibold rounded-xl text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 ${accentColor} transition-all`}
               >
-                <option value="">All Subjects</option>
+                <option value="" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">All Subjects</option>
                 {filteredSubjectsList.map((s) => (
-                  <option key={s.id} value={s.id}>
+                  <option key={s.id} value={s.id} className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">
                     {s.title}
                   </option>
                 ))}
@@ -149,9 +149,9 @@ export function LessonsListManager({
                 onChange={(e) => setSelectedTopicId(e.target.value)}
                 className={`w-full px-3 py-2 border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-xs font-semibold rounded-xl text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 ${accentColor} transition-all`}
               >
-                <option value="">All Topics</option>
+                <option value="" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">All Topics</option>
                 {filteredTopicsList.map((t) => (
-                  <option key={t.id} value={t.id}>
+                  <option key={t.id} value={t.id} className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">
                     {t.title}
                   </option>
                 ))}
