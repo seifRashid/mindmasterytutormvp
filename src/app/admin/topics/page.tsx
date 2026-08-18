@@ -4,11 +4,29 @@ import { CrudModal } from "@/components/admin/CrudModal";
 import { EditTopicModal } from "@/components/admin/EditTopicModal";
 import { DeleteTopicModal } from "@/components/admin/DeleteTopicModal";
 import { getSession } from "@/lib/auth";
-import { INITIAL_SUBJECTS, INITIAL_TOPICS } from "@/lib/mock-data";
 import { FolderTree } from "lucide-react";
+import { db } from "@/db";
+import { subjects as dbSubjects, topics as dbTopics } from "@/db/schema";
+import { asc } from "drizzle-orm";
 
 export default async function AdminTopicsPage() {
   const session = await getSession();
+
+  const dbSubjectsList = await db.select().from(dbSubjects).orderBy(dbSubjects.title);
+  const subjectsList = dbSubjectsList.map((s) => ({
+    id: s.id,
+    title: s.title,
+  }));
+
+  const dbTopicsList = await db.select().from(dbTopics).orderBy(asc(dbTopics.orderNumber));
+  const topicsList = dbTopicsList.map((top) => ({
+    id: top.id,
+    subjectId: top.subjectId,
+    title: top.title,
+    description: top.description || "",
+    orderNumber: top.orderNumber,
+    createdAt: top.createdAt.toISOString(),
+  }));
 
   return (
     <div className="min-h-screen bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-white flex flex-col">
@@ -29,7 +47,7 @@ export default async function AdminTopicsPage() {
             </div>
             <CrudModal
               type="topic"
-              subjects={INITIAL_SUBJECTS.map((s) => ({ id: s.id, title: s.title }))}
+              subjects={subjectsList}
             />
           </div>
 
@@ -44,8 +62,8 @@ export default async function AdminTopicsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {INITIAL_TOPICS.map((top) => {
-                  const parentSub = INITIAL_SUBJECTS.find((s) => s.id === top.subjectId);
+                {topicsList.map((top) => {
+                  const parentSub = subjectsList.find((s) => s.id === top.subjectId);
                   return (
                     <tr key={top.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-850">
                       <td className="p-4 font-bold text-slate-900 dark:text-white flex items-center gap-2">
@@ -63,7 +81,7 @@ export default async function AdminTopicsPage() {
                             description: top.description || "",
                             orderNumber: top.orderNumber,
                           }}
-                          subjects={INITIAL_SUBJECTS.map((s) => ({ id: s.id, title: s.title }))}
+                          subjects={subjectsList}
                         />
                         <DeleteTopicModal topic={top} />
                       </td>

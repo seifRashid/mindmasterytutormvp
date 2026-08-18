@@ -122,6 +122,7 @@ export async function createTopicAction(formData: FormData) {
     });
   } catch (err) {
     console.error("Failed to insert topic into DB:", err);
+    return { error: "Failed to create topic in database." };
   }
 
   revalidatePath("/admin/topics");
@@ -269,6 +270,7 @@ export async function deleteEntityAction(entityType: "class" | "subject" | "topi
       await db.delete(dbTopics).where(eq(dbTopics.id, toUuid(id)));
     } catch (err) {
       console.error("Failed to delete topic from DB:", err);
+      return { error: "Failed to delete topic from database." };
     }
   } else if (entityType === "lesson") {
     const idx = INITIAL_LESSONS.findIndex((l) => l.id === id);
@@ -294,6 +296,7 @@ export async function deleteEntityAction(entityType: "class" | "subject" | "topi
   revalidatePath("/admin");
   revalidatePath("/admin/classes");
   revalidatePath("/admin/subjects");
+  revalidatePath("/admin/topics");
   revalidatePath("/teacher");
   return { success: true };
 }
