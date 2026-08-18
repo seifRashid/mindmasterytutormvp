@@ -83,6 +83,7 @@ export async function createSubjectAction(formData: FormData) {
     });
   } catch (err) {
     console.error("Failed to insert subject in DB:", err);
+    return { error: "Failed to create subject in database." };
   }
 
   revalidatePath("/admin/subjects");
@@ -258,6 +259,7 @@ export async function deleteEntityAction(entityType: "class" | "subject" | "topi
       await db.delete(subjects).where(eq(subjects.id, toUuid(id)));
     } catch (err) {
       console.error("Failed to delete subject from DB:", err);
+      return { error: "Failed to delete subject from database." };
     }
   } else if (entityType === "topic") {
     const idx = INITIAL_TOPICS.findIndex((t) => t.id === id);
@@ -291,6 +293,7 @@ export async function deleteEntityAction(entityType: "class" | "subject" | "topi
 
   revalidatePath("/admin");
   revalidatePath("/admin/classes");
+  revalidatePath("/admin/subjects");
   revalidatePath("/teacher");
   return { success: true };
 }

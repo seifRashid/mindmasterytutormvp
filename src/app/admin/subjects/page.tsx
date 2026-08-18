@@ -4,11 +4,30 @@ import { CrudModal } from "@/components/admin/CrudModal";
 import { EditSubjectModal } from "@/components/admin/EditSubjectModal";
 import { DeleteSubjectModal } from "@/components/admin/DeleteSubjectModal";
 import { getSession } from "@/lib/auth";
-import { INITIAL_CLASSES, INITIAL_SUBJECTS } from "@/lib/mock-data";
 import { BookOpen } from "lucide-react";
+import { db } from "@/db";
+import { classes as dbClasses, subjects as dbSubjects } from "@/db/schema";
+import { desc } from "drizzle-orm";
 
 export default async function AdminSubjectsPage() {
   const session = await getSession();
+
+  const dbClassesList = await db.select().from(dbClasses).orderBy(dbClasses.name);
+  const classesList = dbClassesList.map((c) => ({
+    id: c.id,
+    name: c.name,
+  }));
+
+  const dbSubjectsList = await db.select().from(dbSubjects).orderBy(desc(dbSubjects.createdAt));
+  const subjectsList = dbSubjectsList.map((sub) => ({
+    id: sub.id,
+    classId: sub.classId,
+    title: sub.title,
+    slug: sub.slug,
+    description: sub.description || "",
+    icon: sub.icon || "BookOpen",
+    createdAt: sub.createdAt.toISOString(),
+  }));
 
   return (
     <div className="min-h-screen bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-white flex flex-col">
@@ -29,7 +48,7 @@ export default async function AdminSubjectsPage() {
             </div>
             <CrudModal
               type="subject"
-              classes={INITIAL_CLASSES.map((c) => ({ id: c.id, name: c.name }))}
+              classes={classesList}
             />
           </div>
 
@@ -44,8 +63,8 @@ export default async function AdminSubjectsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {INITIAL_SUBJECTS.map((sub) => {
-                  const parentClass = INITIAL_CLASSES.find((c) => c.id === sub.classId);
+                {subjectsList.map((sub) => {
+                  const parentClass = classesList.find((c) => c.id === sub.classId);
                   return (
                     <tr key={sub.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-850">
                       <td className="p-4 font-bold text-slate-900 dark:text-white flex items-center gap-2">
@@ -63,7 +82,7 @@ export default async function AdminSubjectsPage() {
                             description: sub.description || "",
                             icon: sub.icon,
                           }}
-                          classes={INITIAL_CLASSES.map((c) => ({ id: c.id, name: c.name }))}
+                          classes={classesList}
                         />
                         <DeleteSubjectModal subject={sub} />
                       </td>

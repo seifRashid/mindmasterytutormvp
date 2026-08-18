@@ -15,18 +15,24 @@ import { Sidebar } from "@/components/layout/Sidebar";
 import { AnalyticsCharts } from "@/components/admin/AnalyticsCharts";
 import { CrudModal } from "@/components/admin/CrudModal";
 import { getSession } from "@/lib/auth";
-import {
-  INITIAL_CLASSES,
-  INITIAL_LESSONS,
-  INITIAL_QUIZZES,
-  INITIAL_SUBJECTS,
-  INITIAL_TOPICS,
-} from "@/lib/mock-data";
+import { INITIAL_LESSONS, INITIAL_QUIZZES, INITIAL_TOPICS } from "@/lib/mock-data";
 import { getUsers } from "@/lib/user-store";
+import { db } from "@/db";
+import { classes as dbClasses, subjects as dbSubjects, topics as dbTopics, lessons as dbLessons, quizzes as dbQuizzes } from "@/db/schema";
+import { count } from "drizzle-orm";
 
 export default async function AdminDashboardPage() {
   const session = await getSession();
   const dbUsers = await getUsers();
+
+  const [classesCountResult] = await db.select({ value: count() }).from(dbClasses);
+  const [subjectsCountResult] = await db.select({ value: count() }).from(dbSubjects);
+  const [topicsCountResult] = await db.select({ value: count() }).from(dbTopics);
+  const [lessonsCountResult] = await db.select({ value: count() }).from(dbLessons);
+  const [quizzesCountResult] = await db.select({ value: count() }).from(dbQuizzes);
+
+  const dbClassesList = await db.select().from(dbClasses).orderBy(dbClasses.name);
+  const classesList = dbClassesList.map((c) => ({ id: c.id, name: c.name }));
 
   return (
     <div className="min-h-screen bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-white flex flex-col">
@@ -54,7 +60,7 @@ export default async function AdminDashboardPage() {
               <CrudModal type="class" />
               <CrudModal
                 type="subject"
-                classes={INITIAL_CLASSES.map((c) => ({ id: c.id, name: c.name }))}
+                classes={classesList}
               />
               <CrudModal
                 type="lesson"
@@ -73,7 +79,7 @@ export default async function AdminDashboardPage() {
                 <Layers className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                 <ArrowUpRight className="w-4 h-4 text-slate-400 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
               </div>
-              <p className="text-xl font-bold text-slate-900 dark:text-white">{INITIAL_CLASSES.length}</p>
+              <p className="text-xl font-bold text-slate-900 dark:text-white">{classesCountResult.value}</p>
               <p className="text-[11px] text-slate-500 font-medium">Class Levels</p>
             </Link>
 
@@ -85,7 +91,7 @@ export default async function AdminDashboardPage() {
                 <BookOpen className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
                 <ArrowUpRight className="w-4 h-4 text-slate-400 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
               </div>
-              <p className="text-xl font-bold text-slate-900 dark:text-white">{INITIAL_SUBJECTS.length}</p>
+              <p className="text-xl font-bold text-slate-900 dark:text-white">{subjectsCountResult.value}</p>
               <p className="text-[11px] text-slate-500 font-medium">Active Subjects</p>
             </Link>
 
@@ -97,7 +103,7 @@ export default async function AdminDashboardPage() {
                 <FolderTree className="w-5 h-5 text-cyan-600 dark:text-cyan-400" />
                 <ArrowUpRight className="w-4 h-4 text-slate-400 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
               </div>
-              <p className="text-xl font-bold text-slate-900 dark:text-white">{INITIAL_TOPICS.length}</p>
+              <p className="text-xl font-bold text-slate-900 dark:text-white">{topicsCountResult.value}</p>
               <p className="text-[11px] text-slate-500 font-medium">Topics</p>
             </Link>
 
@@ -109,7 +115,7 @@ export default async function AdminDashboardPage() {
                 <Video className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
                 <ArrowUpRight className="w-4 h-4 text-slate-400 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
               </div>
-              <p className="text-xl font-bold text-slate-900 dark:text-white">{INITIAL_LESSONS.length}</p>
+              <p className="text-xl font-bold text-slate-900 dark:text-white">{lessonsCountResult.value}</p>
               <p className="text-[11px] text-slate-500 font-medium">Lessons</p>
             </Link>
 
@@ -121,7 +127,7 @@ export default async function AdminDashboardPage() {
                 <HelpCircle className="w-5 h-5 text-amber-600 dark:text-amber-400" />
                 <ArrowUpRight className="w-4 h-4 text-slate-400 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
               </div>
-              <p className="text-xl font-bold text-slate-900 dark:text-white">{INITIAL_QUIZZES.length}</p>
+              <p className="text-xl font-bold text-slate-900 dark:text-white">{quizzesCountResult.value}</p>
               <p className="text-[11px] text-slate-500 font-medium">Quizzes</p>
             </Link>
 
