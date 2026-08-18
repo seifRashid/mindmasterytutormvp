@@ -98,7 +98,8 @@ export function TopicsListManager({ topics, subjects, classes }: TopicsListManag
 
           <CrudModal
             type="topic"
-            subjects={subjects.map((s) => ({ id: s.id, title: s.title }))}
+            classes={classes}
+            subjects={subjects}
           />
         </div>
       </div>

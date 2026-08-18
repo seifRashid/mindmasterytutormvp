@@ -13,13 +13,14 @@ import {
 interface CrudModalProps {
   type: "class" | "subject" | "topic" | "lesson" | "quiz";
   classes?: { id: string; name: string }[];
-  subjects?: { id: string; title: string }[];
+  subjects?: { id: string; classId?: string; title: string }[];
   topics?: { id: string; title: string }[];
 }
 
 export function CrudModal({ type, classes = [], subjects = [], topics = [] }: CrudModalProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [selectedClassId, setSelectedClassId] = useState("");
 
   const titles = {
     class: "Create New Class Level",
@@ -41,13 +42,17 @@ export function CrudModal({ type, classes = [], subjects = [], topics = [] }: Cr
     else if (type === "quiz") await createQuizAction(formData);
 
     setLoading(false);
+    setSelectedClassId("");
     setIsOpen(false);
   };
 
   return (
     <>
       <button
-        onClick={() => setIsOpen(true)}
+        onClick={() => {
+          setSelectedClassId("");
+          setIsOpen(true);
+        }}
         className="px-4 py-2 text-xs font-semibold rounded-xl bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-500/20 flex items-center gap-2 transition-all"
       >
         <Plus className="w-4 h-4" />
@@ -62,7 +67,10 @@ export function CrudModal({ type, classes = [], subjects = [], topics = [] }: Cr
                 {titles[type]}
               </h2>
               <button
-                onClick={() => setIsOpen(false)}
+                onClick={() => {
+                  setSelectedClassId("");
+                  setIsOpen(false);
+                }}
                 className="p-1 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
               >
                 <X className="w-5 h-5" />
@@ -131,6 +139,23 @@ export function CrudModal({ type, classes = [], subjects = [], topics = [] }: Cr
                 <>
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      Select Class Level
+                    </label>
+                    <select
+                      value={selectedClassId}
+                      onChange={(e) => setSelectedClassId(e.target.value)}
+                      className="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">Select a Class Level...</option>
+                      {classes.map((c) => (
+                        <option key={c.id} value={c.id} className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                       Select Parent Subject
                     </label>
                     <select
@@ -138,11 +163,14 @@ export function CrudModal({ type, classes = [], subjects = [], topics = [] }: Cr
                       required
                       className="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
-                      {subjects.map((s) => (
-                        <option key={s.id} value={s.id}>
-                          {s.title}
-                        </option>
-                      ))}
+                      <option value="" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">Select a Subject...</option>
+                      {subjects
+                        .filter((s) => !selectedClassId || s.classId === selectedClassId)
+                        .map((s) => (
+                          <option key={s.id} value={s.id} className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">
+                            {s.title}
+                          </option>
+                        ))}
                     </select>
                   </div>
                   <div>
