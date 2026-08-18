@@ -4,7 +4,7 @@ import { useRef, useState, useEffect, useCallback, type KeyboardEvent } from "re
 import {
   Bold, Italic, Underline, Strikethrough, Code, Subscript, Superscript,
   AlignLeft, AlignCenter, AlignRight, AlignJustify,
-  List, ListOrdered, Quote, Heading1, Heading2, Heading3,
+  List, ListOrdered, Quote, Heading1, Heading2, Heading3, Heading4,
   Undo2, Redo2, Maximize2, Minimize2, Eye, FileCode2,
   ChevronDown, Eraser, Highlighter, Palette, Pilcrow,
   Code2, SquarePen, X, Link2, Image as ImageIcon, Table2,
@@ -48,8 +48,9 @@ const FONT_FAMILIES = [
 ];
 
 const FONT_SIZES = [
-  { label: "Small",   value: "1" },
+  { label: "Small",   value: "2" },
   { label: "Normal",  value: "3" },
+  { label: "Medium",  value: "4" },
   { label: "Large",   value: "5" },
   { label: "X-Large", value: "6" },
   { label: "XX-Large",value: "7" },
@@ -60,7 +61,7 @@ const BLOCK_FORMATS = [
   { label: "Heading 1",  tag: "h1",         Icon: Heading1  },
   { label: "Heading 2",  tag: "h2",         Icon: Heading2  },
   { label: "Heading 3",  tag: "h3",         Icon: Heading3  },
-  { label: "Heading 4",  tag: "h4",         Icon: Heading3  },
+  { label: "Heading 4",  tag: "h4",         Icon: Heading4  },
   { label: "Blockquote", tag: "blockquote", Icon: Quote     },
   { label: "Code Block", tag: "pre",        Icon: Code2     },
 ];
@@ -121,7 +122,7 @@ function TBtn({ onClick, active, disabled, children, className = "" }: {
       className={[
         "flex items-center justify-center w-7 h-7 rounded-md text-sm transition-all select-none flex-shrink-0",
         active
-          ? "bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300"
+          ? "bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300 font-semibold"
           : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700",
         disabled ? "opacity-40 cursor-not-allowed" : "cursor-pointer active:scale-95",
         className,
@@ -144,18 +145,36 @@ function ColorPanel({ colors, title, onSelect, onClose }: {
   colors: string[]; title: string; onSelect: (c: string) => void; onClose: () => void;
 }) {
   return (
-    <div className="absolute top-full left-0 mt-1.5 z-[9999] bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl p-3 w-56" onMouseDown={(e) => e.stopPropagation()}>
+    <div
+      className="absolute top-full left-0 mt-1.5 z-[100] bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl p-3 w-56"
+      onMouseDown={(e) => e.stopPropagation()}
+    >
       <div className="flex items-center justify-between mb-2.5">
-        <span className="text-xs font-bold text-slate-600 dark:text-slate-300">{title}</span>
-        <button type="button" onMouseDown={(e) => { e.preventDefault(); onClose(); }} className="p-0.5 rounded hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400">
-          <X className="w-3 h-3" />
+        <span className="text-xs font-bold text-slate-700 dark:text-slate-200">{title}</span>
+        <button
+          type="button"
+          onMouseDown={(e) => { e.preventDefault(); onClose(); }}
+          className="p-0.5 rounded hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400"
+        >
+          <X className="w-3.5 h-3.5" />
         </button>
       </div>
       <div className="grid grid-cols-8 gap-1.5">
         {colors.map((c, i) => (
-          <button key={i} type="button" onMouseDown={(e) => { e.preventDefault(); onSelect(c); }} title={c}
-            className={["w-6 h-6 rounded-md border-2 transition-all hover:scale-110 hover:border-blue-400", c === "none" ? "border-slate-200 dark:border-slate-600" : "border-transparent"].join(" ")}
-            style={{ background: c === "none" ? "linear-gradient(to bottom right, #fff 50%, #f1f5f9 50%)" : c }}
+          <button
+            key={i}
+            type="button"
+            onMouseDown={(e) => { e.preventDefault(); onSelect(c); }}
+            title={c}
+            className={[
+              "w-5 h-5 rounded-md border transition-all hover:scale-110 hover:border-blue-500",
+              c === "none" ? "border-slate-300 dark:border-slate-600" : "border-transparent",
+            ].join(" ")}
+            style={{
+              background: c === "none"
+                ? "linear-gradient(to bottom right, #fff 50%, #f1f5f9 50%)"
+                : c,
+            }}
           />
         ))}
       </div>
@@ -169,16 +188,38 @@ function Dropdown({ children, onMouseDown, className = "" }: {
   children: React.ReactNode; onMouseDown?: (e: React.MouseEvent) => void; className?: string;
 }) {
   return (
-    <div className={`absolute top-full left-0 mt-1.5 z-[9999] bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl py-1 min-w-[180px] ${className}`} onMouseDown={onMouseDown}>
+    <div
+      className={`absolute top-full left-0 mt-1.5 z-[100] bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-2xl py-1 min-w-[190px] max-h-[350px] overflow-y-auto ${className}`}
+      onMouseDown={onMouseDown}
+    >
       {children}
     </div>
   );
 }
 
-function DropItem({ onClick, children, className = "" }: { onClick: () => void; children: React.ReactNode; className?: string }) {
+function DropItem({
+  onClick,
+  children,
+  className = "",
+  active = false,
+}: {
+  onClick: () => void;
+  children: React.ReactNode;
+  className?: string;
+  active?: boolean;
+}) {
   return (
-    <button type="button" onMouseDown={(e) => { e.preventDefault(); onClick(); }}
-      className={["w-full flex items-center gap-2.5 px-3 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors text-left", className].join(" ")}>
+    <button
+      type="button"
+      onMouseDown={(e) => { e.preventDefault(); onClick(); }}
+      className={[
+        "w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium transition-colors text-left select-none cursor-pointer",
+        active
+          ? "bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 font-semibold"
+          : "text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/80",
+        className,
+      ].join(" ")}
+    >
       {children}
     </button>
   );
@@ -212,9 +253,11 @@ function InsertModal({ type, onClose, onInsert }: {
   };
 
   const handleTable = () => {
-    const headerRow = `<tr>${Array.from({ length: tableCols }, (_, i) => `<th>Column ${i + 1}</th>`).join("")}</tr>`;
-    const bodyRows = Array.from({ length: Math.max(1, tableRows - 1) }, () =>
-      `<tr>${Array.from({ length: tableCols }, () => "<td>&nbsp;</td>").join("")}</tr>`
+    const finalRows = hoverCell[0] > 0 ? hoverCell[0] : tableRows;
+    const finalCols = hoverCell[1] > 0 ? hoverCell[1] : tableCols;
+    const headerRow = `<tr>${Array.from({ length: finalCols }, (_, i) => `<th>Column ${i + 1}</th>`).join("")}</tr>`;
+    const bodyRows = Array.from({ length: Math.max(1, finalRows - 1) }, () =>
+      `<tr>${Array.from({ length: finalCols }, () => "<td>&nbsp;</td>").join("")}</tr>`
     ).join("");
     onInsert(`<table><thead>${headerRow}</thead><tbody>${bodyRows}</tbody></table><p><br></p>`);
   };
@@ -223,7 +266,7 @@ function InsertModal({ type, onClose, onInsert }: {
   const finalCols = hoverCell[1] > 0 ? hoverCell[1] : tableCols;
 
   return (
-    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/40 backdrop-blur-sm"
+    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/50 backdrop-blur-sm"
       onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 w-full max-w-md mx-4 overflow-hidden">
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-slate-800">
@@ -315,7 +358,7 @@ function InsertModal({ type, onClose, onInsert }: {
             onClick={() => {
               if (type === "link")  handleLink();
               if (type === "image") handleImage();
-              if (type === "table") { setTableRows(finalRows); setTableCols(finalCols); handleTable(); }
+              if (type === "table") handleTable();
             }}
             className="px-4 py-2 rounded-xl text-sm font-bold bg-blue-600 hover:bg-blue-700 text-white transition-colors shadow-sm">
             Insert
@@ -386,12 +429,17 @@ export function RichTextEditor({
   // ── Selection ─────────────────────────────────────────────────────────────
   const saveSelection = useCallback(() => {
     const sel = window.getSelection();
-    if (sel && sel.rangeCount > 0) savedRange.current = sel.getRangeAt(0).cloneRange();
+    if (sel && sel.rangeCount > 0) {
+      savedRange.current = sel.getRangeAt(0).cloneRange();
+    }
   }, []);
 
   const restoreSelection = useCallback(() => {
     const sel = window.getSelection();
-    if (sel && savedRange.current) { sel.removeAllRanges(); sel.addRange(savedRange.current); }
+    if (sel && savedRange.current) {
+      sel.removeAllRanges();
+      sel.addRange(savedRange.current);
+    }
   }, []);
 
   const focusEditor = useCallback(() => {
@@ -465,11 +513,13 @@ export function RichTextEditor({
   }, [focusEditor, notifyChange]);
 
   const insertEduBlock = useCallback((block: typeof EDU_BLOCKS[0]) => {
+    restoreSelection();
     focusEditor();
     document.execCommand("insertHTML", false,
       `<div class="${block.cls}"><strong>${block.emoji} ${block.title}</strong><p>Write your ${block.label.toLowerCase()} here...</p></div><p><br></p>`);
-    notifyChange(); setShowEduMenu(false);
-  }, [focusEditor, notifyChange]);
+    notifyChange();
+    setShowEduMenu(false);
+  }, [restoreSelection, focusEditor, notifyChange]);
 
   const insertHR = useCallback(() => {
     focusEditor();
@@ -478,32 +528,60 @@ export function RichTextEditor({
   }, [focusEditor, notifyChange]);
 
   const applyBlock = useCallback((tag: string) => {
-    if (tag === "pre") { insertCodeBlock(); return; }
-    exec("formatBlock", `<${tag}>`);
+    restoreSelection();
+    focusEditor();
+    if (tag === "pre") {
+      insertCodeBlock();
+      return;
+    }
+    try {
+      document.execCommand("formatBlock", false, `<${tag}>`);
+    } catch {
+      try {
+        document.execCommand("formatBlock", false, tag);
+      } catch { /* ignore */ }
+    }
+    notifyChange();
+    updateActive();
     setShowBlockMenu(false);
-  }, [exec, insertCodeBlock]);
+  }, [restoreSelection, focusEditor, insertCodeBlock, notifyChange, updateActive]);
 
   const applyColor = useCallback((color: string, type: "text" | "hl") => {
-    restoreSelection(); focusEditor();
+    restoreSelection();
+    focusEditor();
     if (type === "text") {
       document.execCommand("foreColor", false, color);
     } else {
-      if (color === "none") { document.execCommand("removeFormat", false, undefined); }
-      else { try { document.execCommand("hiliteColor", false, color); } catch { document.execCommand("backColor", false, color); } }
+      if (color === "none") {
+        document.execCommand("removeFormat", false, undefined);
+      } else {
+        try {
+          document.execCommand("hiliteColor", false, color);
+        } catch {
+          document.execCommand("backColor", false, color);
+        }
+      }
     }
-    notifyChange(); setColorPicker(null);
+    notifyChange();
+    setColorPicker(null);
   }, [restoreSelection, focusEditor, notifyChange]);
 
   const applyFont = useCallback((font: string) => {
-    restoreSelection(); focusEditor();
-    if (font) document.execCommand("fontName", false, font);
-    notifyChange(); setShowFontMenu(false);
+    restoreSelection();
+    focusEditor();
+    if (font) {
+      document.execCommand("fontName", false, font);
+    }
+    notifyChange();
+    setShowFontMenu(false);
   }, [restoreSelection, focusEditor, notifyChange]);
 
   const applySize = useCallback((size: string) => {
-    restoreSelection(); focusEditor();
+    restoreSelection();
+    focusEditor();
     document.execCommand("fontSize", false, size);
-    notifyChange(); setShowSizeMenu(false);
+    notifyChange();
+    setShowSizeMenu(false);
   }, [restoreSelection, focusEditor, notifyChange]);
 
   const switchMode = useCallback((mode: ViewMode) => {
@@ -520,9 +598,11 @@ export function RichTextEditor({
   }, [viewMode, sourceHtml, onChange]);
 
   const handleModalInsert = useCallback((html: string) => {
-    restoreSelection(); focusEditor();
+    restoreSelection();
+    focusEditor();
     document.execCommand("insertHTML", false, html);
-    notifyChange(); setModal(null);
+    notifyChange();
+    setModal(null);
   }, [restoreSelection, focusEditor, notifyChange]);
 
   useEffect(() => {
@@ -532,9 +612,6 @@ export function RichTextEditor({
 
   useEffect(() => {
     const close = (e: MouseEvent) => {
-      // Only close menus when the click originated OUTSIDE the toolbar.
-      // Native mousedown fires before React's synthetic stopPropagation,
-      // so without this guard the menu would close the moment you open it.
       if (toolbarRef.current && toolbarRef.current.contains(e.target as Node)) return;
       closeAllMenus();
     };
@@ -567,24 +644,34 @@ export function RichTextEditor({
   const toolbar = !readOnly && (
     <div
       ref={toolbarRef}
-      className="sticky top-0 z-10 border-b border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm flex-shrink-0"
+      className="sticky top-0 z-30 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm flex-shrink-0"
       onMouseDown={(e) => e.stopPropagation()}
     >
       {/* ── Row 1: History | Block | Font | Size | Style | Color | Code | View | Fullscreen */}
-      {/* IMPORTANT: overflow-x must be on a CHILD wrapper, not this div.                      */}
-      {/* Setting overflow-x:auto on the row itself implicitly sets overflow-y:auto too,        */}
-      {/* which clips absolutely-positioned dropdowns. The outer div must stay overflow-visible. */}
-      <div className="relative border-b border-slate-100 dark:border-slate-800/60">
-      <div className="flex items-center gap-0.5 px-2 py-1.5 overflow-x-auto">
+      <div className={`relative border-b border-slate-100 dark:border-slate-800/60 flex flex-wrap items-center gap-0.5 px-3 py-1.5 ${
+        (showBlockMenu || showFontMenu || showSizeMenu || colorPicker) ? "z-50" : "z-20"
+      }`}>
 
         <Tip tip="Undo" shortcut="Ctrl+Z"><TBtn onClick={() => exec("undo")}><Undo2 className="w-3.5 h-3.5" /></TBtn></Tip>
         <Tip tip="Redo" shortcut="Ctrl+Y"><TBtn onClick={() => exec("redo")}><Redo2 className="w-3.5 h-3.5" /></TBtn></Tip>
         <Sep />
 
         {/* Block Style */}
-        <div className="relative" onMouseDown={(e) => e.stopPropagation()}>
+        <div className={`relative ${showBlockMenu ? "z-50" : "z-10"}`} onMouseDown={(e) => e.stopPropagation()}>
           <Tip tip="Block Style">
-            <button type="button" onMouseDown={(e) => { e.preventDefault(); saveSelection(); setShowBlockMenu((b) => !b); setShowFontMenu(false); setShowSizeMenu(false); setShowEduMenu(false); setColorPicker(null); }} className={dropTriggerCls}>
+            <button
+              type="button"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                saveSelection();
+                setShowBlockMenu((b) => !b);
+                setShowFontMenu(false);
+                setShowSizeMenu(false);
+                setShowEduMenu(false);
+                setColorPicker(null);
+              }}
+              className={dropTriggerCls}
+            >
               <span className="w-[84px] text-left truncate">{currentBlockLabel}</span>
               <ChevronDown className="w-3 h-3 text-slate-400 flex-shrink-0" />
             </button>
@@ -592,7 +679,11 @@ export function RichTextEditor({
           {showBlockMenu && (
             <Dropdown onMouseDown={(e) => e.stopPropagation()}>
               {BLOCK_FORMATS.map(({ label, tag, Icon }) => (
-                <DropItem key={tag} onClick={() => applyBlock(tag)}>
+                <DropItem
+                  key={tag}
+                  onClick={() => applyBlock(tag)}
+                  active={currentBlockLabel === label}
+                >
                   <Icon className="w-4 h-4 text-slate-400" />
                   <span>{label}</span>
                 </DropItem>
@@ -603,10 +694,23 @@ export function RichTextEditor({
         <Sep />
 
         {/* Font Family */}
-        <div className="relative" onMouseDown={(e) => e.stopPropagation()}>
+        <div className={`relative ${showFontMenu ? "z-50" : "z-10"}`} onMouseDown={(e) => e.stopPropagation()}>
           <Tip tip="Font Family">
-            <button type="button" onMouseDown={(e) => { e.preventDefault(); saveSelection(); setShowFontMenu((b) => !b); setShowBlockMenu(false); setShowSizeMenu(false); setShowEduMenu(false); setColorPicker(null); }} className={dropTriggerCls}>
-              <span>Font</span><ChevronDown className="w-3 h-3 text-slate-400" />
+            <button
+              type="button"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                saveSelection();
+                setShowFontMenu((b) => !b);
+                setShowBlockMenu(false);
+                setShowSizeMenu(false);
+                setShowEduMenu(false);
+                setColorPicker(null);
+              }}
+              className={dropTriggerCls}
+            >
+              <span>Font</span>
+              <ChevronDown className="w-3 h-3 text-slate-400" />
             </button>
           </Tip>
           {showFontMenu && (
@@ -621,16 +725,31 @@ export function RichTextEditor({
         </div>
 
         {/* Font Size */}
-        <div className="relative" onMouseDown={(e) => e.stopPropagation()}>
+        <div className={`relative ${showSizeMenu ? "z-50" : "z-10"}`} onMouseDown={(e) => e.stopPropagation()}>
           <Tip tip="Font Size">
-            <button type="button" onMouseDown={(e) => { e.preventDefault(); saveSelection(); setShowSizeMenu((b) => !b); setShowBlockMenu(false); setShowFontMenu(false); setShowEduMenu(false); setColorPicker(null); }} className={dropTriggerCls}>
-              <span>Size</span><ChevronDown className="w-3 h-3 text-slate-400" />
+            <button
+              type="button"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                saveSelection();
+                setShowSizeMenu((b) => !b);
+                setShowBlockMenu(false);
+                setShowFontMenu(false);
+                setShowEduMenu(false);
+                setColorPicker(null);
+              }}
+              className={dropTriggerCls}
+            >
+              <span>Size</span>
+              <ChevronDown className="w-3 h-3 text-slate-400" />
             </button>
           </Tip>
           {showSizeMenu && (
             <Dropdown onMouseDown={(e) => e.stopPropagation()}>
               {FONT_SIZES.map(({ label, value }) => (
-                <DropItem key={value} onClick={() => applySize(value)}><span>{label}</span></DropItem>
+                <DropItem key={value} onClick={() => applySize(value)}>
+                  <span>{label}</span>
+                </DropItem>
               ))}
             </Dropdown>
           )}
@@ -647,21 +766,49 @@ export function RichTextEditor({
         <Sep />
 
         {/* Colors */}
-        <div className="relative" onMouseDown={(e) => e.stopPropagation()}>
+        <div className={`relative ${colorPicker === "text" ? "z-50" : "z-10"}`} onMouseDown={(e) => e.stopPropagation()}>
           <Tip tip="Text Color">
-            <TBtn onClick={() => { saveSelection(); setColorPicker((p) => p === "text" ? null : "text"); setShowBlockMenu(false); setShowFontMenu(false); setShowSizeMenu(false); setShowEduMenu(false); }}>
+            <TBtn onClick={() => {
+              saveSelection();
+              setColorPicker((p) => p === "text" ? null : "text");
+              setShowBlockMenu(false);
+              setShowFontMenu(false);
+              setShowSizeMenu(false);
+              setShowEduMenu(false);
+            }}>
               <Palette className="w-3.5 h-3.5" />
             </TBtn>
           </Tip>
-          {colorPicker === "text" && <ColorPanel colors={TEXT_COLORS} title="Text Color" onSelect={(c) => applyColor(c, "text")} onClose={() => setColorPicker(null)} />}
+          {colorPicker === "text" && (
+            <ColorPanel
+              colors={TEXT_COLORS}
+              title="Text Color"
+              onSelect={(c) => applyColor(c, "text")}
+              onClose={() => setColorPicker(null)}
+            />
+          )}
         </div>
-        <div className="relative" onMouseDown={(e) => e.stopPropagation()}>
+        <div className={`relative ${colorPicker === "hl" ? "z-50" : "z-10"}`} onMouseDown={(e) => e.stopPropagation()}>
           <Tip tip="Highlight">
-            <TBtn onClick={() => { saveSelection(); setColorPicker((p) => p === "hl" ? null : "hl"); setShowBlockMenu(false); setShowFontMenu(false); setShowSizeMenu(false); setShowEduMenu(false); }}>
+            <TBtn onClick={() => {
+              saveSelection();
+              setColorPicker((p) => p === "hl" ? null : "hl");
+              setShowBlockMenu(false);
+              setShowFontMenu(false);
+              setShowSizeMenu(false);
+              setShowEduMenu(false);
+            }}>
               <Highlighter className="w-3.5 h-3.5" />
             </TBtn>
           </Tip>
-          {colorPicker === "hl" && <ColorPanel colors={HIGHLIGHT_COLORS} title="Highlight Color" onSelect={(c) => applyColor(c, "hl")} onClose={() => setColorPicker(null)} />}
+          {colorPicker === "hl" && (
+            <ColorPanel
+              colors={HIGHLIGHT_COLORS}
+              title="Highlight Color"
+              onSelect={(c) => applyColor(c, "hl")}
+              onClose={() => setColorPicker(null)}
+            />
+          )}
         </div>
         <Sep />
 
@@ -692,11 +839,11 @@ export function RichTextEditor({
           </TBtn>
         </Tip>
       </div>
-      </div>
 
       {/* ── Row 2: Align | Lists+Indent | Insert | Edu Blocks | Clear */}
-      <div className="relative">
-      <div className="flex items-center gap-0.5 px-2 py-1.5 overflow-x-auto">
+      <div className={`relative flex flex-wrap items-center gap-0.5 px-3 py-1.5 ${
+        showEduMenu ? "z-50" : "z-10"
+      }`}>
 
         {/* Alignment */}
         <Tip tip="Align Left"><TBtn onClick={() => exec("justifyLeft")} active={active.justifyLeft}><AlignLeft className="w-3.5 h-3.5" /></TBtn></Tip>
@@ -728,11 +875,21 @@ export function RichTextEditor({
         <Sep />
 
         {/* Educational Blocks */}
-        <div className="relative" onMouseDown={(e) => e.stopPropagation()}>
+        <div className={`relative ${showEduMenu ? "z-50" : "z-10"}`} onMouseDown={(e) => e.stopPropagation()}>
           <Tip tip="Insert Educational Block">
-            <button type="button"
-              onMouseDown={(e) => { e.preventDefault(); saveSelection(); setShowEduMenu((b) => !b); setShowBlockMenu(false); setShowFontMenu(false); setShowSizeMenu(false); setColorPicker(null); }}
-              className="flex items-center gap-1.5 h-7 px-2.5 rounded-md text-xs font-semibold bg-violet-50 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 hover:bg-violet-100 dark:hover:bg-violet-900/50 border border-violet-200 dark:border-violet-800 transition-all cursor-pointer select-none flex-shrink-0">
+            <button
+              type="button"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                saveSelection();
+                setShowEduMenu((b) => !b);
+                setShowBlockMenu(false);
+                setShowFontMenu(false);
+                setShowSizeMenu(false);
+                setColorPicker(null);
+              }}
+              className="flex items-center gap-1.5 h-7 px-2.5 rounded-md text-xs font-semibold bg-violet-50 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 hover:bg-violet-100 dark:hover:bg-violet-900/50 border border-violet-200 dark:border-violet-800 transition-all cursor-pointer select-none flex-shrink-0"
+            >
               <LayoutTemplate className="w-3.5 h-3.5" />
               <span>Block</span>
               <ChevronDown className="w-3 h-3 opacity-60" />
@@ -756,7 +913,6 @@ export function RichTextEditor({
 
         {/* Clear Formatting */}
         <Tip tip="Clear Formatting"><TBtn onClick={() => exec("removeFormat")}><Eraser className="w-3.5 h-3.5" /></TBtn></Tip>
-      </div>
       </div>
     </div>
   );
@@ -817,7 +973,7 @@ export function RichTextEditor({
     </div>
   );
 
-  // ── STATS BAR ──────────────────────────────────────────────────────────────
+  // ── STATS BAR ───────────────────────────────────────────────────────
 
   const statsBar = (
     <div className="flex items-center gap-4 px-5 py-2 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/50 text-xs text-slate-500 dark:text-slate-400 flex-shrink-0">
