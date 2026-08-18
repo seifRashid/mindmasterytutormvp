@@ -43,6 +43,7 @@ export async function createClassAction(formData: FormData) {
     });
   } catch (err) {
     console.error("Failed to insert class into DB:", err);
+    return { error: "Failed to create class level in database." };
   }
 
   revalidatePath("/admin/classes");
@@ -247,6 +248,7 @@ export async function deleteEntityAction(entityType: "class" | "subject" | "topi
       await db.delete(dbClasses).where(eq(dbClasses.id, toUuid(id)));
     } catch (err) {
       console.error("Failed to delete class from DB:", err);
+      return { error: "Failed to delete class level from database." };
     }
   } else if (entityType === "subject") {
     const idx = INITIAL_SUBJECTS.findIndex((s) => s.id === id);
@@ -288,6 +290,7 @@ export async function deleteEntityAction(entityType: "class" | "subject" | "topi
   }
 
   revalidatePath("/admin");
+  revalidatePath("/admin/classes");
   revalidatePath("/teacher");
   return { success: true };
 }
