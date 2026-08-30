@@ -129,10 +129,16 @@ export function Navbar({ user }: NavbarProps) {
                 <button
                   onClick={() => setProfileOpen(!profileOpen)}
                   style={{ touchAction: "manipulation" }}
-                  className="w-9 h-9 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-500 text-white flex items-center justify-center font-bold text-sm shadow-md hover:scale-105 active:scale-95 transition-transform cursor-pointer"
+                  className="w-9 h-9 rounded-full overflow-hidden bg-gradient-to-tr from-blue-600 to-indigo-500 text-white flex items-center justify-center font-bold text-sm shadow-md hover:scale-105 active:scale-95 transition-transform cursor-pointer"
                   aria-label="Profile menu"
                 >
-                  {user.name.charAt(0).toUpperCase()}
+                  {user.image && user.image.startsWith("http") ? (
+                    <img src={user.image} alt={user.name} className="w-full h-full object-cover" />
+                  ) : user.image ? (
+                    <span className="text-lg">{user.image}</span>
+                  ) : (
+                    user.name.charAt(0).toUpperCase()
+                  )}
                 </button>
 
                 {profileOpen && (
@@ -242,8 +248,14 @@ export function Navbar({ user }: NavbarProps) {
           {user ? (
             <div className="pt-3 mt-2 border-t border-slate-100 dark:border-slate-800 space-y-1">
               <div className="flex items-center gap-3 px-4 py-2">
-                <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-500 text-white flex items-center justify-center font-bold text-sm">
-                  {user.name.charAt(0).toUpperCase()}
+                <div className="w-8 h-8 rounded-full overflow-hidden bg-gradient-to-tr from-blue-600 to-indigo-500 text-white flex items-center justify-center font-bold text-sm flex-shrink-0">
+                  {user.image && user.image.startsWith("http") ? (
+                    <img src={user.image} alt={user.name} className="w-full h-full object-cover" />
+                  ) : user.image ? (
+                    <span className="text-sm">{user.image}</span>
+                  ) : (
+                    user.name.charAt(0).toUpperCase()
+                  )}
                 </div>
                 <div>
                   <p className="text-sm font-semibold text-slate-900 dark:text-white">{user.name}</p>

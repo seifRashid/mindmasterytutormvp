@@ -8,7 +8,7 @@ import {
   Undo2, Redo2, Maximize2, Minimize2, Eye, FileCode2,
   ChevronDown, Eraser, Highlighter, Palette, Pilcrow,
   Code2, SquarePen, X, Link2, Image as ImageIcon, Table2,
-  Minus, Indent, Outdent, LayoutTemplate, BookOpen,
+  Minus, Indent, Outdent, LayoutTemplate, BookOpen, Loader2,
 } from "lucide-react";
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -237,6 +237,41 @@ function InsertModal({ type, onClose, onInsert }: {
   const [tableRows, setTableRows] = useState(3);
   const [tableCols, setTableCols] = useState(3);
   const [hoverCell, setHoverCell] = useState<[number, number]>([0, 0]);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    setUploadError(null);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to upload image.");
+      }
+
+      setImgUrl(data.url);
+      if (!imgAlt.trim()) {
+        const baseName = file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
+        setImgAlt(baseName);
+      }
+    } catch (err: any) {
+      setUploadError(err.message || "Failed to upload image.");
+    } finally {
+      setUploading(false);
+    }
+  };
 
   if (!type) return null;
 
@@ -299,11 +334,43 @@ function InsertModal({ type, onClose, onInsert }: {
 
           {type === "image" && (
             <>
-              <div>
-                <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wide">Image URL *</label>
-                <input autoFocus value={imgUrl} onChange={(e) => setImgUrl(e.target.value)} placeholder="https://example.com/image.png"
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              <div className="grid grid-cols-1 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wide">Image URL *</label>
+                  <input autoFocus value={imgUrl} onChange={(e) => setImgUrl(e.target.value)} placeholder="https://example.com/image.png"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wide">Or Upload Image</label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                    id="rte-image-upload"
+                    className="hidden"
+                    disabled={uploading}
+                  />
+                  <label
+                    htmlFor="rte-image-upload"
+                    className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 border border-dashed rounded-xl cursor-pointer hover:border-blue-500 hover:bg-blue-50/20 text-slate-600 dark:text-slate-300 dark:hover:bg-blue-950/10 text-xs font-bold transition-all ${
+                      uploading ? "opacity-50 pointer-events-none" : ""
+                    }`}
+                  >
+                    {uploading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
+                        Uploading...
+                      </>
+                    ) : (
+                      <>
+                        <ImageIcon className="w-4 h-4 text-blue-600" />
+                        Choose Photo
+                      </>
+                    )}
+                  </label>
+                </div>
               </div>
+              {uploadError && <p className="text-xs text-rose-500 font-semibold">{uploadError}</p>}
               <div>
                 <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wide">Caption / Alt Text</label>
                 <input value={imgAlt} onChange={(e) => setImgAlt(e.target.value)} placeholder="Describe the image..."

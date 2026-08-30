@@ -40,8 +40,14 @@ export default async function AdminUsersPage() {
                 {dbUsers.map((usr) => (
                   <tr key={usr.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-850">
                     <td className="p-4 font-bold text-slate-900 dark:text-white flex items-center gap-3">
-                      <div className="w-7 h-7 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-xs">
-                        {usr.name.charAt(0)}
+                      <div className="w-7 h-7 rounded-full overflow-hidden bg-blue-600 text-white flex items-center justify-center font-bold text-xs flex-shrink-0">
+                        {usr.image && usr.image.startsWith("http") ? (
+                          <img src={usr.image} alt={usr.name} className="w-full h-full object-cover" />
+                        ) : usr.image ? (
+                          <span>{usr.image}</span>
+                        ) : (
+                          usr.name.charAt(0)
+                        )}
                       </div>
                       {usr.name}
                     </td>

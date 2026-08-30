@@ -8,6 +8,7 @@ import { toUuid } from "@/lib/id-mapper";
 import { comparePassword, hashPassword } from "@/lib/crypto";
 import { mapDbUser, findUserById } from "@/lib/user-store";
 import { revalidatePath } from "next/cache";
+import { v2 as cloudinary } from "cloudinary";
 
 export async function updateProfileDetailsAction(data: {
   name: string;
@@ -72,8 +73,12 @@ export async function updateProfileDetailsAction(data: {
 
     revalidatePath("/admin/users");
     revalidatePath("/dashboard");
+    revalidatePath("/dashboard/profile");
     revalidatePath("/teacher");
+    revalidatePath("/teacher/profile");
     revalidatePath("/admin");
+    revalidatePath("/admin/profile");
+    revalidatePath("/", "layout");
 
     return { success: true, user: updatedUser };
   } catch (err: any) {
@@ -125,5 +130,80 @@ export async function updateProfilePasswordAction(data: {
   } catch (err: any) {
     console.error("Password update error:", err);
     return { error: err.message || "An unexpected error occurred while changing your password." };
+  }
+}
+
+function getCloudinaryPublicId(url: string): string | null {
+  if (!url || !url.includes("res.cloudinary.com")) return null;
+  try {
+    const parts = url.split("/upload/");
+    if (parts.length < 2) return null;
+    const pathAfterUpload = parts[1].replace(/^v\d+\//, "");
+    return pathAfterUpload.substring(0, pathAfterUpload.lastIndexOf("."));
+  } catch (error) {
+    console.error("Error parsing Cloudinary URL:", error);
+    return null;
+  }
+}
+
+export async function updateProfileAvatarAction(imageUrl: string) {
+  try {
+    const session = await getSession();
+    if (!session) {
+      return { error: "You must be logged in to update your avatar." };
+    }
+
+    const userUuid = toUuid(session.id);
+
+    // 1. Fetch current details to delete old Cloudinary image if it exists
+    const currentUser = await findUserById(session.id);
+    const oldImage = currentUser?.image;
+
+    if (oldImage && oldImage !== imageUrl) {
+      const publicId = getCloudinaryPublicId(oldImage);
+      if (publicId) {
+        cloudinary.config({
+          cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+          api_key: process.env.CLOUDINARY_API_KEY,
+          api_secret: process.env.CLOUDINARY_API_SECRET,
+        });
+        await cloudinary.uploader.destroy(publicId).catch((err) => {
+          console.error("Failed to delete old Cloudinary image:", err);
+        });
+      }
+    }
+
+    // 2. Perform update in database
+    await db
+      .update(users)
+      .set({
+        image: imageUrl || null,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, userUuid));
+
+    // 3. Fetch the fresh updated user details
+    const updatedUser = await findUserById(session.id);
+    if (!updatedUser) {
+      return { error: "Failed to locate updated user profile." };
+    }
+
+    // 4. Update the active session cookie
+    await setSession(updatedUser);
+
+    // 5. Revalidate all profile and dashboard layout routes
+    revalidatePath("/admin/users");
+    revalidatePath("/dashboard");
+    revalidatePath("/dashboard/profile");
+    revalidatePath("/teacher");
+    revalidatePath("/teacher/profile");
+    revalidatePath("/admin");
+    revalidatePath("/admin/profile");
+    revalidatePath("/", "layout");
+
+    return { success: true, user: updatedUser };
+  } catch (err: any) {
+    console.error("Avatar update error:", err);
+    return { error: err.message || "An unexpected error occurred while updating your avatar." };
   }
 }

@@ -227,8 +227,14 @@ export function StudentApprovalsDashboard({
                     {/* Student Info */}
                     <td className="p-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-full bg-blue-100 dark:bg-blue-950 text-blue-600 dark:text-blue-400 font-extrabold flex items-center justify-center text-xs flex-shrink-0">
-                          {student.name.charAt(0)}
+                        <div className="w-9 h-9 rounded-full overflow-hidden bg-blue-100 dark:bg-blue-950 text-blue-600 dark:text-blue-400 font-extrabold flex items-center justify-center text-xs flex-shrink-0">
+                          {student.image && student.image.startsWith("http") ? (
+                            <img src={student.image} alt={student.name} className="w-full h-full object-cover" />
+                          ) : student.image ? (
+                            <span className="text-sm">{student.image}</span>
+                          ) : (
+                            student.name.charAt(0)
+                          )}
                         </div>
                         <div>
                           <p className="font-bold text-slate-900 dark:text-white text-sm">
@@ -333,8 +339,14 @@ export function StudentApprovalsDashboard({
             
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-2xl bg-cyan-500/20 text-cyan-600 dark:text-cyan-400 font-black flex items-center justify-center text-lg">
-                  {selectedStudent.name.charAt(0)}
+                <div className="w-12 h-12 rounded-2xl overflow-hidden bg-cyan-500/20 text-cyan-600 dark:text-cyan-400 font-black flex items-center justify-center text-lg flex-shrink-0">
+                  {selectedStudent.image && selectedStudent.image.startsWith("http") ? (
+                    <img src={selectedStudent.image} alt={selectedStudent.name} className="w-full h-full object-cover" />
+                  ) : selectedStudent.image ? (
+                    <span className="text-lg">{selectedStudent.image}</span>
+                  ) : (
+                    selectedStudent.name.charAt(0)
+                  )}
                 </div>
                 <div>
                   <h3 className="text-lg font-extrabold text-slate-900 dark:text-white">

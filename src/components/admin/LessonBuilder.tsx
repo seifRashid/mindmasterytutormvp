@@ -23,6 +23,7 @@ import {
   Clock,
   BookOpen,
   Settings2,
+  Loader2,
 } from "lucide-react";
 import type { Lesson, LessonAttachment, Quiz, Question, Answer, AttachmentType, QuestionType } from "@/lib/types";
 
@@ -283,6 +284,54 @@ export function LessonBuilder({ lesson, quiz, questions: initialQuestions, topic
   const [newAttName, setNewAttName] = useState("");
   const [newAttUrl, setNewAttUrl] = useState("");
   const [newAttType, setNewAttType] = useState<AttachmentType>("pdf");
+  const [attUploading, setAttUploading] = useState(false);
+  const [attUploadError, setAttUploadError] = useState<string | null>(null);
+
+  const handleAttachmentUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setAttUploading(true);
+    setAttUploadError(null);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to upload file.");
+      }
+
+      setNewAttUrl(data.url);
+      const baseName = file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
+      setNewAttName(baseName);
+
+      const ext = file.name.split('.').pop()?.toLowerCase();
+      if (ext) {
+        if (["pdf"].includes(ext)) {
+          setNewAttType("pdf");
+        } else if (["doc", "docx", "txt", "rtf", "odt"].includes(ext)) {
+          setNewAttType("doc");
+        } else if (["jpg", "jpeg", "png", "gif", "svg", "webp"].includes(ext)) {
+          setNewAttType("image");
+        } else if (["ppt", "pptx", "key"].includes(ext)) {
+          setNewAttType("presentation");
+        } else {
+          setNewAttType("other");
+        }
+      }
+    } catch (err: any) {
+      setAttUploadError(err.message || "Failed to upload file.");
+    } finally {
+      setAttUploading(false);
+    }
+  };
 
   // Quiz tab state
   const [hasQuiz, setHasQuiz] = useState(!!lesson.lessonQuizId);
@@ -645,24 +694,59 @@ export function LessonBuilder({ lesson, quiz, questions: initialQuestions, topic
               </div>
             </div>
 
-            <div>
-              <label className="block text-xs font-bold text-slate-500 mb-1 uppercase tracking-wider">File URL / Link</label>
-              <div className="flex gap-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wider">File URL / Link</label>
                 <input
                   value={newAttUrl}
                   onChange={(e) => setNewAttUrl(e.target.value)}
                   placeholder="https://..."
-                  className="flex-1 px-3 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
-                <button
-                  onClick={addAttachment}
-                  disabled={!newAttName.trim() || !newAttUrl.trim()}
-                  className="px-4 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-bold hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5 transition-all"
-                >
-                  <Plus className="w-4 h-4" />
-                  Add
-                </button>
               </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Or Upload File</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="file"
+                    onChange={handleAttachmentUpload}
+                    id="attachment-upload"
+                    className="hidden"
+                    disabled={attUploading}
+                  />
+                  <label
+                    htmlFor="attachment-upload"
+                    className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 border border-dashed rounded-lg cursor-pointer hover:border-blue-500 hover:bg-blue-50/20 text-slate-600 dark:text-slate-300 dark:hover:bg-blue-950/10 text-xs font-bold transition-all ${
+                      attUploading ? "opacity-50 pointer-events-none" : ""
+                    }`}
+                  >
+                    {attUploading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
+                        Uploading...
+                      </>
+                    ) : (
+                      <>
+                        <Paperclip className="w-4 h-4 text-blue-600" />
+                        Choose File
+                      </>
+                    )}
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            {attUploadError && <p className="text-xs text-rose-500 font-semibold">{attUploadError}</p>}
+
+            <div className="flex justify-end pt-2">
+              <button
+                onClick={addAttachment}
+                disabled={!newAttName.trim() || !newAttUrl.trim() || attUploading}
+                className="px-5 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-bold hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5 transition-all cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                Add Material
+              </button>
             </div>
           </div>
 
