@@ -52,13 +52,16 @@ export default async function AdminClassesPage() {
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                 {classesList.map((cls) => (
-                  <tr key={cls.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-850">
+                  <tr
+                    key={cls.id}
+                    className="hover:bg-slate-50 dark:hover:bg-slate-800/70 transition-colors duration-150 group"
+                  >
                     <td className="p-4 font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                      <Layers className="w-4 h-4 text-blue-500" />
-                      {cls.name}
+                      <Layers className="w-4 h-4 text-blue-500 flex-shrink-0" />
+                      <span>{cls.name}</span>
                     </td>
-                    <td className="p-4 text-slate-500 font-mono">{cls.slug}</td>
-                    <td className="p-4 text-slate-500">{new Date(cls.createdAt).toLocaleDateString()}</td>
+                    <td className="p-4 text-slate-600 dark:text-slate-300 font-mono">{cls.slug}</td>
+                    <td className="p-4 text-slate-600 dark:text-slate-300">{new Date(cls.createdAt).toLocaleDateString()}</td>
                     <td className="p-4 text-right flex items-center justify-end gap-1">
                       <EditClassModal classLevel={cls} />
                       <DeleteClassModal classLevel={cls} />

@@ -27,7 +27,7 @@ export function CrudModal({ type, classes = [], subjects = [], topics = [] }: Cr
     subject: "Create New Subject",
     topic: "Create New Topic",
     lesson: "Create New Lesson",
-    quiz: "Create New Topic Quiz",
+    quiz: "Create New Quiz",
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {

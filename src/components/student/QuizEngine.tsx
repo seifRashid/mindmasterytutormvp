@@ -271,7 +271,7 @@ export function QuizEngine({ quiz, questions, topicSlug }: QuizEngineProps) {
                       className={`w-full text-left p-3.5 rounded-xl border text-xs font-medium transition-all flex items-center justify-between ${
                         isSelected
                           ? "border-blue-600 bg-blue-50 dark:bg-blue-950/60 text-blue-950 dark:text-blue-200 ring-2 ring-blue-500/20"
-                          : "border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-850 text-slate-700 dark:text-slate-300"
+                          : "border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/70 text-slate-700 dark:text-slate-200 hover:border-slate-300 dark:hover:border-slate-700"
                       }`}
                     >
                       <span>{ans.answer}</span>

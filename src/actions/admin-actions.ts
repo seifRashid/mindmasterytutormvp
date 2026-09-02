@@ -19,6 +19,7 @@ import { db } from "@/db";
 import { subjects, classes as dbClasses, topics as dbTopics, quizzes as dbQuizzes, questions as dbQuestions, answers as dbAnswers } from "@/db/schema";
 import { toUuid } from "@/lib/id-mapper";
 import { eq } from "drizzle-orm";
+import { getSession } from "@/lib/auth";
 
 export async function createClassAction(formData: FormData) {
   const name = formData.get("name") as string;
@@ -428,87 +429,170 @@ export async function editTopicAction(formData: FormData) {
   return { success: true };
 }
 
+export interface SaveQuizPayload {
+  id?: string;
+  topicId: string;
+  lessonId?: string | null;
+  title: string;
+  passingScore?: number;
+  timeLimitMinutes?: number;
+  showFeedback?: boolean;
+  questions: Array<{
+    id?: string;
+    type: "multiple_choice" | "true_false" | "short_answer";
+    question: string;
+    explanation?: string;
+    orderNumber?: number;
+    answers: Array<{
+      id?: string;
+      answer: string;
+      isCorrect: boolean;
+    }>;
+  }>;
+}
+
+export async function saveQuizWithQuestionsAction(payload: SaveQuizPayload) {
+  const session = await getSession();
+  if (!session || (session.role !== "admin" && session.role !== "teacher")) {
+    return { error: "Unauthorized. Teacher or Admin permissions required." };
+  }
+
+  const title = payload.title?.trim();
+  if (!title) return { error: "Quiz title is required." };
+  if (!payload.topicId) return { error: "Parent topic selection is required." };
+
+  if (!payload.questions || payload.questions.length === 0) {
+    return { error: "At least one question is required for the quiz." };
+  }
+
+  // Validate each question
+  for (let i = 0; i < payload.questions.length; i++) {
+    const q = payload.questions[i];
+    if (!q.question?.trim()) {
+      return { error: `Question #${i + 1} statement is empty.` };
+    }
+    if (!q.answers || q.answers.length === 0) {
+      return { error: `Question #${i + 1} must have answer choices.` };
+    }
+    let hasCorrect = false;
+    for (const ans of q.answers) {
+      if (!ans.answer?.trim()) {
+        return { error: `Answer option for Question #${i + 1} cannot be empty.` };
+      }
+      if (ans.isCorrect) hasCorrect = true;
+    }
+    if (!hasCorrect) {
+      return { error: `Please mark at least one correct option for Question #${i + 1}.` };
+    }
+  }
+
+  const isNew = !payload.id;
+  const quizId = payload.id ? toUuid(payload.id) : crypto.randomUUID();
+  const passingScore = Math.min(100, Math.max(10, payload.passingScore ?? 70));
+  const timeLimitMinutes = Math.max(0, payload.timeLimitMinutes ?? 0);
+  const showFeedback = payload.showFeedback !== false;
+
+  try {
+    if (isNew) {
+      await db.insert(dbQuizzes).values({
+        id: quizId,
+        topicId: toUuid(payload.topicId),
+        lessonId: payload.lessonId ? toUuid(payload.lessonId) : null,
+        title,
+        passingScore,
+        timeLimitMinutes,
+        showFeedback,
+        createdAt: new Date(),
+      });
+    } else {
+      await db
+        .update(dbQuizzes)
+        .set({
+          topicId: toUuid(payload.topicId),
+          lessonId: payload.lessonId ? toUuid(payload.lessonId) : null,
+          title,
+          passingScore,
+          timeLimitMinutes,
+          showFeedback,
+        })
+        .where(eq(dbQuizzes.id, quizId));
+
+      // Delete previous questions (cascade deletes previous answers in DB)
+      await db.delete(dbQuestions).where(eq(dbQuestions.quizId, quizId));
+    }
+
+    // Insert fresh questions & answers
+    for (let qIdx = 0; qIdx < payload.questions.length; qIdx++) {
+      const q = payload.questions[qIdx];
+      const qId = crypto.randomUUID();
+
+      await db.insert(dbQuestions).values({
+        id: qId,
+        quizId,
+        type: q.type || "multiple_choice",
+        question: q.question.trim(),
+        explanation: (q.explanation || "").trim(),
+        orderNumber: qIdx + 1,
+        createdAt: new Date(),
+      });
+
+      for (const ans of q.answers) {
+        await db.insert(dbAnswers).values({
+          id: crypto.randomUUID(),
+          questionId: qId,
+          answer: ans.answer.trim(),
+          isCorrect: Boolean(ans.isCorrect),
+          createdAt: new Date(),
+        });
+      }
+    }
+
+    // Also update in-memory objects if present for backwards compatibility
+    const memQuizIdx = INITIAL_QUIZZES.findIndex((q) => q.id === payload.id || q.id === quizId);
+    if (memQuizIdx > -1) {
+      INITIAL_QUIZZES[memQuizIdx].title = title;
+      INITIAL_QUIZZES[memQuizIdx].passingScore = passingScore;
+      INITIAL_QUIZZES[memQuizIdx].topicId = payload.topicId;
+    } else {
+      INITIAL_QUIZZES.push({
+        id: quizId,
+        topicId: payload.topicId,
+        title,
+        passingScore,
+        showFeedback,
+        createdAt: new Date().toISOString(),
+      });
+    }
+
+    revalidatePath("/admin/quizzes");
+    revalidatePath(`/admin/quizzes/${quizId}`);
+    revalidatePath("/teacher/quizzes");
+    revalidatePath(`/teacher/quizzes/${quizId}`);
+    revalidatePath(`/dashboard/quizzes/${quizId}`);
+    revalidatePath("/dashboard/subjects", "layout");
+
+    return { success: true, quizId };
+  } catch (err: any) {
+    console.error("Failed to save quiz in database:", err);
+    return { error: err.message || "Failed to save quiz in database. Please try again." };
+  }
+}
+
 export async function editQuizWithQuestionsAction(
   quizId: string,
   title: string,
   passingScore: number,
   questions: any[]
 ) {
-  if (!quizId || !title) return { error: "Quiz ID and title are required" };
+  // Find topicId from db or fallback
+  const existingQuiz = await db.select().from(dbQuizzes).where(eq(dbQuizzes.id, toUuid(quizId)));
+  const topicId = existingQuiz[0]?.topicId || INITIAL_TOPICS[0]?.id || "";
 
-  // 1. Update Quiz in memory
-  const quizIdx = INITIAL_QUIZZES.findIndex((q) => q.id === quizId);
-  if (quizIdx > -1) {
-    INITIAL_QUIZZES[quizIdx].title = title;
-    INITIAL_QUIZZES[quizIdx].passingScore = passingScore;
-  }
-
-  // Clear and insert questions in memory
-  for (let i = INITIAL_QUESTIONS.length - 1; i >= 0; i--) {
-    if (INITIAL_QUESTIONS[i].quizId === quizId) {
-      INITIAL_QUESTIONS.splice(i, 1);
-    }
-  }
-
-  // Re-populate questions in memory
-  const mappedQuestions: Question[] = questions.map((q, qIdx) => {
-    const qId = q.id.startsWith("q-new-") ? `q-${Date.now()}-${qIdx}` : q.id;
-    return {
-      id: qId,
-      quizId,
-      type: q.type || "multiple_choice",
-      question: q.question,
-      explanation: q.explanation || "",
-      orderNumber: qIdx + 1,
-      answers: (q.answers || []).map((ans: any, aIdx: number) => ({
-        id: ans.id.startsWith("a-new-") || ans.id.includes("new") ? `a-${Date.now()}-${qIdx}-${aIdx}` : ans.id,
-        questionId: qId,
-        answer: ans.answer,
-        isCorrect: ans.isCorrect,
-      })),
-    };
+  return saveQuizWithQuestionsAction({
+    id: quizId,
+    topicId,
+    title,
+    passingScore,
+    questions,
   });
-
-  INITIAL_QUESTIONS.push(...mappedQuestions);
-
-  // 2. Update DB
-  try {
-    await db
-      .update(dbQuizzes)
-      .set({ title, passingScore })
-      .where(eq(dbQuizzes.id, toUuid(quizId)));
-
-    await db
-      .delete(dbQuestions)
-      .where(eq(dbQuestions.quizId, toUuid(quizId)));
-
-    for (const q of mappedQuestions) {
-      await db.insert(dbQuestions).values({
-        id: toUuid(q.id),
-        quizId: toUuid(quizId),
-        type: q.type,
-        question: q.question,
-        explanation: q.explanation,
-        orderNumber: q.orderNumber,
-        createdAt: new Date(),
-      });
-
-      for (const ans of q.answers) {
-        await db.insert(dbAnswers).values({
-          id: toUuid(ans.id),
-          questionId: toUuid(q.id),
-          answer: ans.answer,
-          isCorrect: ans.isCorrect,
-          createdAt: new Date(),
-        });
-      }
-    }
-  } catch (err) {
-    console.error("Failed to update quiz with questions in DB:", err);
-    return { error: "Failed to save quiz in database." };
-  }
-
-  revalidatePath("/admin/quizzes");
-  revalidatePath("/teacher/quizzes");
-  return { success: true };
 }

@@ -179,14 +179,17 @@ export function TopicsListManager({ topics, subjects, classes }: TopicsListManag
                   : null;
 
                 return (
-                  <tr key={top.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-850">
+                  <tr
+                    key={top.id}
+                    className="hover:bg-slate-50 dark:hover:bg-slate-800/70 transition-colors duration-150 group"
+                  >
                     <td className="p-4 font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                      <FolderTree className="w-4 h-4 text-cyan-500" />
-                      {top.title}
+                      <FolderTree className="w-4 h-4 text-cyan-500 flex-shrink-0" />
+                      <span>{top.title}</span>
                     </td>
-                    <td className="p-4 text-slate-500 font-semibold">{parentSub?.title || "Math"}</td>
-                    <td className="p-4 text-slate-500 font-semibold">{parentClass?.name || "N/A"}</td>
-                    <td className="p-4 text-slate-500 font-mono"># {top.orderNumber}</td>
+                    <td className="p-4 text-slate-600 dark:text-slate-300 font-medium">{parentSub?.title || "Math"}</td>
+                    <td className="p-4 text-slate-600 dark:text-slate-300 font-medium">{parentClass?.name || "N/A"}</td>
+                    <td className="p-4 text-slate-600 dark:text-slate-300 font-mono"># {top.orderNumber}</td>
                     <td className="p-4 text-right flex items-center justify-end gap-1">
                       <EditTopicModal
                         topic={{

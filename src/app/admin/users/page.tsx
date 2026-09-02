@@ -38,7 +38,10 @@ export default async function AdminUsersPage() {
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                 {dbUsers.map((usr) => (
-                  <tr key={usr.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-850">
+                  <tr
+                    key={usr.id}
+                    className="hover:bg-slate-50 dark:hover:bg-slate-800/70 transition-colors duration-150 group"
+                  >
                     <td className="p-4 font-bold text-slate-900 dark:text-white flex items-center gap-3">
                       <div className="w-7 h-7 rounded-full overflow-hidden bg-blue-600 text-white flex items-center justify-center font-bold text-xs flex-shrink-0">
                         {usr.image && usr.image.startsWith("http") ? (
@@ -49,9 +52,9 @@ export default async function AdminUsersPage() {
                           usr.name.charAt(0)
                         )}
                       </div>
-                      {usr.name}
+                      <span>{usr.name}</span>
                     </td>
-                    <td className="p-4 text-slate-500 font-mono">{usr.email}</td>
+                    <td className="p-4 text-slate-600 dark:text-slate-300 font-mono">{usr.email}</td>
                     <td className="p-4">
                       <span
                         className={`px-2.5 py-0.5 rounded-full font-bold text-[10px] uppercase tracking-wider inline-flex items-center gap-1 ${
@@ -72,7 +75,7 @@ export default async function AdminUsersPage() {
                         {usr.role}
                       </span>
                     </td>
-                    <td className="p-4 text-slate-500">{new Date(usr.createdAt).toLocaleDateString()}</td>
+                    <td className="p-4 text-slate-600 dark:text-slate-300">{new Date(usr.createdAt).toLocaleDateString()}</td>
                     <td className="p-4 text-right">
                       <button className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40">
                         <Trash2 className="w-4 h-4" />

@@ -66,13 +66,16 @@ export default async function AdminSubjectsPage() {
                 {subjectsList.map((sub) => {
                   const parentClass = classesList.find((c) => c.id === sub.classId);
                   return (
-                    <tr key={sub.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-850">
+                    <tr
+                      key={sub.id}
+                      className="hover:bg-slate-50 dark:hover:bg-slate-800/70 transition-colors duration-150 group"
+                    >
                       <td className="p-4 font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                        <BookOpen className="w-4 h-4 text-indigo-500" />
-                        {sub.title}
+                        <BookOpen className="w-4 h-4 text-indigo-500 flex-shrink-0" />
+                        <span>{sub.title}</span>
                       </td>
-                      <td className="p-4 text-slate-500 font-semibold">{parentClass?.name || "Grade 8"}</td>
-                      <td className="p-4 text-slate-500 max-w-xs truncate">{sub.description}</td>
+                      <td className="p-4 text-slate-600 dark:text-slate-300 font-medium">{parentClass?.name || "Grade 8"}</td>
+                      <td className="p-4 text-slate-600 dark:text-slate-300 max-w-xs truncate">{sub.description}</td>
                       <td className="p-4 text-right flex items-center justify-end gap-1">
                         <EditSubjectModal
                           subject={{

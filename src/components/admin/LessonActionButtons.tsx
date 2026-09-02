@@ -84,7 +84,7 @@ export function LessonActionButtons({
                 <p>
                   Are you sure you want to delete <strong className="text-slate-900 dark:text-white font-bold">&ldquo;{lessonTitle}&rdquo;</strong>?
                 </p>
-                <p className="bg-slate-50 dark:bg-slate-950 p-3 rounded-xl border border-slate-100 dark:border-slate-850 text-xs">
+                <p className="bg-slate-50 dark:bg-slate-950 p-3 rounded-xl border border-slate-100 dark:border-slate-800 text-xs">
                   ℹ️ Soft-deleted lessons are stored in the recycle bin for <strong>2 days</strong>. You can restore them anytime before they are permanently purged.
                 </p>
               </div>
