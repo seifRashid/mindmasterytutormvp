@@ -93,6 +93,11 @@ export default async function AdminQuizzesPage() {
                         <td className="p-4 font-bold text-slate-900 dark:text-white flex items-center gap-2">
                           <HelpCircle className="w-4 h-4 text-amber-500 flex-shrink-0" />
                           <span>{quiz.title}</span>
+                          {questionsList.some((q) => q.quizId === quiz.id && q.aiGradingEnabled) && (
+                            <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300">
+                              AI Graded
+                            </span>
+                          )}
                         </td>
                         <td className="p-4 text-slate-600 dark:text-slate-300 font-medium">
                           {parentTopic ? (

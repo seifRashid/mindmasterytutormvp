@@ -103,7 +103,7 @@ export async function upsertLessonAction(
       showFeedback: boolean;
       questions: Array<{
         id: string;
-        type: "multiple_choice" | "true_false" | "short_answer";
+        type: "multiple_choice" | "true_false" | "short_answer" | "open_ended";
         question: string;
         explanation?: string;
         orderNumber: number;

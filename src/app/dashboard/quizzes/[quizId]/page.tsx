@@ -46,8 +46,22 @@ export default async function QuizPage({
       .where(inArray(dbAnswers.questionId, questionIds));
 
     questions = questionsList.map((q) => ({
-      ...q,
-      answers: answersList.filter((a) => a.questionId === q.id),
+      id: q.id,
+      quizId: q.quizId,
+      type: q.type,
+      question: q.question,
+      explanation: q.explanation,
+      orderNumber: q.orderNumber,
+      maxMarks: q.maxMarks || 1,
+      aiGradingEnabled: q.aiGradingEnabled,
+      answers: answersList
+        .filter((a) => a.questionId === q.id)
+        .map((a) => ({
+          id: a.id,
+          questionId: a.questionId,
+          answer: a.answer,
+          isCorrect: a.isCorrect,
+        })),
     }));
   }
 

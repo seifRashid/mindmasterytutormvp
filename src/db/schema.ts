@@ -8,6 +8,8 @@ import {
   timestamp,
   pgEnum,
   index,
+  jsonb,
+  real,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
@@ -18,6 +20,7 @@ export const questionTypeEnum = pgEnum("question_type", [
   "multiple_choice",
   "true_false",
   "short_answer",
+  "open_ended",
 ]);
 export const attachmentTypeEnum = pgEnum("attachment_type", [
   "pdf",
@@ -163,6 +166,7 @@ export const quizzes = pgTable(
     id: uuid("id").defaultRandom().primaryKey(),
     topicId: uuid("topic_id").references(() => topics.id, { onDelete: "cascade" }),
     lessonId: uuid("lesson_id").references(() => lessons.id, { onDelete: "cascade" }),
+    createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
     title: varchar("title", { length: 255 }).notNull(),
     passingScore: integer("passing_score").default(70).notNull(),
     timeLimitMinutes: integer("time_limit_minutes").default(0).notNull(), // 0 = no limit
@@ -175,7 +179,13 @@ export const quizzes = pgTable(
   })
 );
 
-// 8. Questions Table — supports MCQ, True/False, Short Answer
+// Rubric interface for questions
+export interface RubricCriterion {
+  criterion: string;
+  marks: number;
+}
+
+// 8. Questions Table — supports MCQ, True/False, Short Answer, Open Ended with AI grading
 export const questions = pgTable(
   "questions",
   {
@@ -187,6 +197,13 @@ export const questions = pgTable(
     question: text("question").notNull(),
     explanation: text("explanation").notNull(),
     orderNumber: integer("order_number").default(1).notNull(),
+    maxMarks: integer("max_marks").default(1).notNull(),
+    aiGradingEnabled: boolean("ai_grading_enabled").default(false).notNull(),
+    expectedAnswer: text("expected_answer"),
+    keyConcepts: jsonb("key_concepts").$type<string[]>(),
+    acceptableAnswers: jsonb("acceptable_answers").$type<string[]>(),
+    commonMisconceptions: jsonb("common_misconceptions").$type<string[]>(),
+    gradingRubric: jsonb("grading_rubric").$type<RubricCriterion[]>(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => ({
@@ -194,7 +211,7 @@ export const questions = pgTable(
   })
 );
 
-// 9. Answers Table
+// 9. Answers Table (Option choices for MCQs, True/False, or exact keyword matches)
 export const answers = pgTable(
   "answers",
   {
@@ -224,6 +241,9 @@ export const quizAttempts = pgTable(
       .references(() => quizzes.id, { onDelete: "cascade" }),
     score: integer("score").notNull(),
     failedAttempts: integer("failed_attempts").default(0).notNull(),
+    totalMarks: integer("total_marks"),
+    maxTotalMarks: integer("max_total_marks"),
+    status: varchar("status", { length: 50 }).default("completed").notNull(), // completed | grading_pending
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => ({
@@ -231,7 +251,81 @@ export const quizAttempts = pgTable(
   })
 );
 
-// 11. Lesson Progress Table
+// 11. Quiz Attempt Answers Table (Individual student answer per question per attempt)
+export const quizAttemptAnswers = pgTable(
+  "quiz_attempt_answers",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    attemptId: uuid("attempt_id")
+      .notNull()
+      .references(() => quizAttempts.id, { onDelete: "cascade" }),
+    questionId: uuid("question_id")
+      .notNull()
+      .references(() => questions.id, { onDelete: "cascade" }),
+    selectedAnswerId: uuid("selected_answer_id").references(() => answers.id, { onDelete: "set null" }),
+    textAnswer: text("text_answer"),
+    score: integer("score").default(0).notNull(),
+    maxScore: integer("max_score").default(1).notNull(),
+    isCorrect: boolean("is_correct").default(false).notNull(),
+    gradingStatus: varchar("grading_status", { length: 50 }).default("completed").notNull(), // completed | pending | failed | requires_review
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    attemptIdx: index("quiz_attempt_answers_attempt_idx").on(table.attemptId),
+    questionIdx: index("quiz_attempt_answers_question_idx").on(table.questionId),
+  })
+);
+
+// Detailed criterion result evaluation
+export interface CriterionEvaluationResult {
+  criterion: string;
+  marksAwarded: number;
+  maxMarks: number;
+  satisfied: boolean;
+  explanation: string;
+}
+
+// 12. AI Grading Results Table (Audited AI grades, criteria breakdown, confidence & teacher overrides)
+export const aiGradingResults = pgTable(
+  "ai_grading_results",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    quizAttemptAnswerId: uuid("quiz_attempt_answer_id")
+      .notNull()
+      .references(() => quizAttemptAnswers.id, { onDelete: "cascade" }),
+    questionId: uuid("question_id")
+      .notNull()
+      .references(() => questions.id, { onDelete: "cascade" }),
+    studentId: uuid("student_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    score: integer("score").notNull(),
+    maxScore: integer("max_score").notNull(),
+    status: varchar("status", { length: 50 }).notNull(), // correct | mostly_correct | partially_correct | incorrect | irrelevant | unclear
+    confidence: real("confidence").notNull(),
+    criteriaResults: jsonb("criteria_results").notNull().$type<CriterionEvaluationResult[]>(),
+    missingConcepts: jsonb("missing_concepts").$type<string[]>(),
+    detectedMisconceptions: jsonb("detected_misconceptions").$type<string[]>(),
+    feedback: text("feedback").notNull(),
+    model: varchar("model", { length: 100 }).notNull(),
+    promptVersion: varchar("prompt_version", { length: 50 }).default("v1").notNull(),
+    requiresTeacherReview: boolean("requires_teacher_review").default(false).notNull(),
+    teacherScore: integer("teacher_score"),
+    teacherFeedback: text("teacher_feedback"),
+    teacherReviewedAt: timestamp("teacher_reviewed_at"),
+    teacherReviewedBy: uuid("teacher_reviewed_by").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    answerIdx: index("ai_grading_results_answer_idx").on(table.quizAttemptAnswerId),
+    questionIdx: index("ai_grading_results_question_idx").on(table.questionId),
+    studentIdx: index("ai_grading_results_student_idx").on(table.studentId),
+    reviewIdx: index("ai_grading_results_review_idx").on(table.requiresTeacherReview),
+  })
+);
+
+// 13. Lesson Progress Table
 export const lessonProgress = pgTable(
   "lesson_progress",
   {
@@ -263,6 +357,7 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   class: one(classes, { fields: [users.classId], references: [classes.id] }),
   quizAttempts: many(quizAttempts),
   lessonProgress: many(lessonProgress),
+  aiGradingResults: many(aiGradingResults),
 }));
 
 export const classesRelations = relations(classes, ({ many }) => ({
@@ -295,6 +390,7 @@ export const lessonAttachmentsRelations = relations(lessonAttachments, ({ one })
 export const quizzesRelations = relations(quizzes, ({ one, many }) => ({
   topic: one(topics, { fields: [quizzes.topicId], references: [topics.id] }),
   lesson: one(lessons, { fields: [quizzes.lessonId], references: [lessons.id] }),
+  creator: one(users, { fields: [quizzes.createdBy], references: [users.id] }),
   questions: many(questions),
   attempts: many(quizAttempts),
 }));
@@ -302,15 +398,32 @@ export const quizzesRelations = relations(quizzes, ({ one, many }) => ({
 export const questionsRelations = relations(questions, ({ one, many }) => ({
   quiz: one(quizzes, { fields: [questions.quizId], references: [quizzes.id] }),
   answers: many(answers),
+  attemptAnswers: many(quizAttemptAnswers),
+  aiGradingResults: many(aiGradingResults),
 }));
 
 export const answersRelations = relations(answers, ({ one }) => ({
   question: one(questions, { fields: [answers.questionId], references: [questions.id] }),
 }));
 
-export const quizAttemptsRelations = relations(quizAttempts, ({ one }) => ({
+export const quizAttemptsRelations = relations(quizAttempts, ({ one, many }) => ({
   user: one(users, { fields: [quizAttempts.userId], references: [users.id] }),
   quiz: one(quizzes, { fields: [quizAttempts.quizId], references: [quizzes.id] }),
+  attemptAnswers: many(quizAttemptAnswers),
+}));
+
+export const quizAttemptAnswersRelations = relations(quizAttemptAnswers, ({ one, many }) => ({
+  attempt: one(quizAttempts, { fields: [quizAttemptAnswers.attemptId], references: [quizAttempts.id] }),
+  question: one(questions, { fields: [quizAttemptAnswers.questionId], references: [questions.id] }),
+  selectedAnswer: one(answers, { fields: [quizAttemptAnswers.selectedAnswerId], references: [answers.id] }),
+  aiGradingResult: many(aiGradingResults),
+}));
+
+export const aiGradingResultsRelations = relations(aiGradingResults, ({ one }) => ({
+  attemptAnswer: one(quizAttemptAnswers, { fields: [aiGradingResults.quizAttemptAnswerId], references: [quizAttemptAnswers.id] }),
+  question: one(questions, { fields: [aiGradingResults.questionId], references: [questions.id] }),
+  student: one(users, { fields: [aiGradingResults.studentId], references: [users.id] }),
+  reviewedByTeacher: one(users, { fields: [aiGradingResults.teacherReviewedBy], references: [users.id] }),
 }));
 
 export const lessonProgressRelations = relations(lessonProgress, ({ one }) => ({

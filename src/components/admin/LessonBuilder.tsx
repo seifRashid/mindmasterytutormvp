@@ -61,6 +61,7 @@ const QUESTION_TYPE_LABELS: Record<QuestionType, string> = {
   multiple_choice: "Multiple Choice",
   true_false: "True / False",
   short_answer: "Short Answer",
+  open_ended: "Open Ended",
 };
 
 function QuestionCard({

@@ -40,6 +40,7 @@ export default async function AdminEditQuizPage({
         id: mockQuiz.id,
         topicId: mockQuiz.topicId || null,
         lessonId: null,
+        createdBy: null,
         title: mockQuiz.title,
         passingScore: mockQuiz.passingScore,
         timeLimitMinutes: 0,
@@ -70,10 +71,17 @@ export default async function AdminEditQuizPage({
 
     questions = dbQuestionList.map((q, idx) => ({
       id: q.id,
-      type: q.type as "multiple_choice" | "true_false" | "short_answer",
+      type: q.type as any,
       question: q.question,
       explanation: q.explanation || "",
       orderNumber: q.orderNumber || idx + 1,
+      maxMarks: q.maxMarks || 1,
+      aiGradingEnabled: q.aiGradingEnabled ?? false,
+      expectedAnswer: q.expectedAnswer || "",
+      keyConcepts: (q.keyConcepts as string[]) || [],
+      acceptableAnswers: (q.acceptableAnswers as string[]) || [],
+      commonMisconceptions: (q.commonMisconceptions as string[]) || [],
+      gradingRubric: (q.gradingRubric as any) || [],
       answers: dbAnswerList
         .filter((a) => a.questionId === q.id)
         .map((a) => ({

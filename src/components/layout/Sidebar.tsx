@@ -17,6 +17,7 @@ import {
   X,
   Menu,
   User,
+  Brain,
 } from "lucide-react";
 
 interface SidebarProps {
@@ -59,6 +60,7 @@ export function Sidebar({ role }: SidebarProps) {
     { label: "Topics", href: "/admin/topics", icon: FolderTree },
     { label: "Lessons", href: "/admin/lessons", icon: Video },
     { label: "Quizzes", href: "/admin/quizzes", icon: HelpCircle },
+    { label: "AI Grading Review", href: "/admin/grading", icon: Brain },
     { label: "User Accounts", href: "/admin/users", icon: Users },
     { label: "My Profile", href: "/admin/profile", icon: User },
   ];
@@ -68,6 +70,7 @@ export function Sidebar({ role }: SidebarProps) {
     { label: "Student Approvals", href: "/teacher/approvals", icon: Users },
     { label: "Manage Lessons", href: "/teacher/lessons", icon: Video },
     { label: "Manage Quizzes", href: "/teacher/quizzes", icon: HelpCircle },
+    { label: "AI Grading Review", href: "/teacher/grading", icon: Brain },
     { label: "My Profile", href: "/teacher/profile", icon: User },
   ];
 

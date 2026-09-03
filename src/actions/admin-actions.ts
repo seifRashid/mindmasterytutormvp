@@ -429,6 +429,8 @@ export async function editTopicAction(formData: FormData) {
   return { success: true };
 }
 
+import { generateMarkingGuide, evaluateStudentAnswer } from "@/lib/ai/grading";
+
 export interface SaveQuizPayload {
   id?: string;
   topicId: string;
@@ -439,10 +441,17 @@ export interface SaveQuizPayload {
   showFeedback?: boolean;
   questions: Array<{
     id?: string;
-    type: "multiple_choice" | "true_false" | "short_answer";
+    type: "multiple_choice" | "true_false" | "short_answer" | "open_ended";
     question: string;
     explanation?: string;
     orderNumber?: number;
+    maxMarks?: number;
+    aiGradingEnabled?: boolean;
+    expectedAnswer?: string;
+    keyConcepts?: string[];
+    acceptableAnswers?: string[];
+    commonMisconceptions?: string[];
+    gradingRubric?: Array<{ criterion: string; marks: number }>;
     answers: Array<{
       id?: string;
       answer: string;
@@ -471,18 +480,41 @@ export async function saveQuizWithQuestionsAction(payload: SaveQuizPayload) {
     if (!q.question?.trim()) {
       return { error: `Question #${i + 1} statement is empty.` };
     }
-    if (!q.answers || q.answers.length === 0) {
-      return { error: `Question #${i + 1} must have answer choices.` };
-    }
-    let hasCorrect = false;
-    for (const ans of q.answers) {
-      if (!ans.answer?.trim()) {
-        return { error: `Answer option for Question #${i + 1} cannot be empty.` };
+
+    if (q.type === "open_ended") {
+      const maxMarks = q.maxMarks || 1;
+      if (maxMarks < 1) {
+        return { error: `Question #${i + 1} maximum marks must be at least 1.` };
       }
-      if (ans.isCorrect) hasCorrect = true;
-    }
-    if (!hasCorrect) {
-      return { error: `Please mark at least one correct option for Question #${i + 1}.` };
+
+      if (q.aiGradingEnabled) {
+        if (!q.expectedAnswer?.trim()) {
+          return { error: `Question #${i + 1} has AI grading enabled but no Expected Answer provided.` };
+        }
+        if (!q.gradingRubric || q.gradingRubric.length === 0) {
+          return { error: `Question #${i + 1} has AI grading enabled but no Rubric criteria defined.` };
+        }
+        const totalRubricMarks = q.gradingRubric.reduce((sum, item) => sum + (Number(item.marks) || 0), 0);
+        if (totalRubricMarks !== maxMarks) {
+          return {
+            error: `Question #${i + 1} rubric criteria marks sum to ${totalRubricMarks}, which must equal the question's maximum marks (${maxMarks}).`,
+          };
+        }
+      }
+    } else {
+      if (!q.answers || q.answers.length === 0) {
+        return { error: `Question #${i + 1} must have answer choices.` };
+      }
+      let hasCorrect = false;
+      for (const ans of q.answers) {
+        if (!ans.answer?.trim()) {
+          return { error: `Answer option for Question #${i + 1} cannot be empty.` };
+        }
+        if (ans.isCorrect) hasCorrect = true;
+      }
+      if (!hasCorrect) {
+        return { error: `Please mark at least one correct option for Question #${i + 1}.` };
+      }
     }
   }
 
@@ -498,6 +530,7 @@ export async function saveQuizWithQuestionsAction(payload: SaveQuizPayload) {
         id: quizId,
         topicId: toUuid(payload.topicId),
         lessonId: payload.lessonId ? toUuid(payload.lessonId) : null,
+        createdBy: session?.id ? toUuid(session.id) : null,
         title,
         passingScore,
         timeLimitMinutes,
@@ -525,6 +558,7 @@ export async function saveQuizWithQuestionsAction(payload: SaveQuizPayload) {
     for (let qIdx = 0; qIdx < payload.questions.length; qIdx++) {
       const q = payload.questions[qIdx];
       const qId = crypto.randomUUID();
+      const isAi = q.type === "open_ended" && Boolean(q.aiGradingEnabled);
 
       await db.insert(dbQuestions).values({
         id: qId,
@@ -533,15 +567,33 @@ export async function saveQuizWithQuestionsAction(payload: SaveQuizPayload) {
         question: q.question.trim(),
         explanation: (q.explanation || "").trim(),
         orderNumber: qIdx + 1,
+        maxMarks: q.maxMarks || 1,
+        aiGradingEnabled: isAi,
+        expectedAnswer: q.expectedAnswer ? q.expectedAnswer.trim() : null,
+        keyConcepts: q.keyConcepts && q.keyConcepts.length > 0 ? q.keyConcepts : null,
+        acceptableAnswers: q.acceptableAnswers && q.acceptableAnswers.length > 0 ? q.acceptableAnswers : null,
+        commonMisconceptions: q.commonMisconceptions && q.commonMisconceptions.length > 0 ? q.commonMisconceptions : null,
+        gradingRubric: q.gradingRubric && q.gradingRubric.length > 0 ? q.gradingRubric : null,
         createdAt: new Date(),
       });
 
-      for (const ans of q.answers) {
+      if (q.answers && q.answers.length > 0) {
+        for (const ans of q.answers) {
+          await db.insert(dbAnswers).values({
+            id: crypto.randomUUID(),
+            questionId: qId,
+            answer: ans.answer.trim(),
+            isCorrect: Boolean(ans.isCorrect),
+            createdAt: new Date(),
+          });
+        }
+      } else {
+        // Fallback reference answer for open-ended questions without explicit choice items
         await db.insert(dbAnswers).values({
           id: crypto.randomUUID(),
           questionId: qId,
-          answer: ans.answer.trim(),
-          isCorrect: Boolean(ans.isCorrect),
+          answer: q.expectedAnswer?.trim() || "Reference Answer",
+          isCorrect: true,
           createdAt: new Date(),
         });
       }
@@ -568,6 +620,7 @@ export async function saveQuizWithQuestionsAction(payload: SaveQuizPayload) {
     revalidatePath(`/admin/quizzes/${quizId}`);
     revalidatePath("/teacher/quizzes");
     revalidatePath(`/teacher/quizzes/${quizId}`);
+    revalidatePath("/teacher/grading");
     revalidatePath(`/dashboard/quizzes/${quizId}`);
     revalidatePath("/dashboard/subjects", "layout");
 
@@ -595,4 +648,103 @@ export async function editQuizWithQuestionsAction(
     passingScore,
     questions,
   });
+}
+
+/**
+ * Server action to automatically generate marking guide for open-ended question
+ */
+export async function generateMarkingGuideAction(input: {
+  question: string;
+  maxMarks: number;
+  topicId?: string;
+  lessonId?: string;
+}) {
+  const session = await getSession();
+  if (!session || (session.role !== "admin" && session.role !== "teacher")) {
+    return { error: "Unauthorized. Teacher or Admin role required." };
+  }
+
+  if (!input.question?.trim()) {
+    return { error: "Please enter a question statement first." };
+  }
+
+  // Fetch topic and subject context if available
+  let topicTitle = "";
+  let subjectTitle = "";
+  if (input.topicId) {
+    try {
+      const topicRecords = await db
+        .select()
+        .from(dbTopics)
+        .where(eq(dbTopics.id, toUuid(input.topicId)));
+      if (topicRecords.length > 0) {
+        topicTitle = topicRecords[0].title;
+        const subjectRecords = await db
+          .select()
+          .from(subjects)
+          .where(eq(subjects.id, topicRecords[0].subjectId));
+        if (subjectRecords.length > 0) {
+          subjectTitle = subjectRecords[0].title;
+        }
+      }
+    } catch {
+      // Non-blocking context lookup
+    }
+  }
+
+  try {
+    const guide = await generateMarkingGuide({
+      question: input.question.trim(),
+      maxMarks: input.maxMarks || 4,
+      topic: topicTitle,
+      subject: subjectTitle,
+    });
+
+    return { success: true, guide };
+  } catch (err: any) {
+    console.error("Error generating marking guide:", err);
+    return { error: err?.message || "Failed to generate marking guide. Please try again." };
+  }
+}
+
+/**
+ * Server action to preview and test AI grading on sample student answers
+ */
+export async function testAiGradingAction(input: {
+  question: string;
+  maxMarks: number;
+  expectedAnswer: string;
+  keyConcepts: string[];
+  acceptableAnswers?: string[];
+  misconceptions?: string[];
+  rubric: Array<{ criterion: string; marks: number }>;
+  sampleAnswer: string;
+  topicId?: string;
+}) {
+  const session = await getSession();
+  if (!session || (session.role !== "admin" && session.role !== "teacher")) {
+    return { error: "Unauthorized. Teacher or Admin role required." };
+  }
+
+  if (!input.sampleAnswer?.trim()) {
+    return { error: "Please enter a sample answer to test." };
+  }
+
+  try {
+    const preview = await evaluateStudentAnswer({
+      question: input.question,
+      maxMarks: input.maxMarks,
+      expectedAnswer: input.expectedAnswer,
+      keyConcepts: input.keyConcepts || [],
+      acceptableAnswers: input.acceptableAnswers || [],
+      misconceptions: input.misconceptions || [],
+      rubric: input.rubric || [],
+      studentAnswer: input.sampleAnswer.trim(),
+    });
+
+    return { success: true, preview };
+  } catch (err: any) {
+    console.error("Error testing AI grading:", err);
+    return { error: err?.message || "Failed to evaluate sample answer." };
+  }
 }

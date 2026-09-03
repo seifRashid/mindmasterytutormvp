@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "generate": "drizzle-kit generate",
-    "migrate:dev": "drizzle-kit migrate --config=dev.drizzle.config.ts",
+    "migrate:dev": "npx tsx src/db/migrate-runner.ts",
     "seed:dev": "npx tsx src/db/seed.dev.ts",
     "clean:prod": "npx tsx src/db/clean-prod.ts"
   },

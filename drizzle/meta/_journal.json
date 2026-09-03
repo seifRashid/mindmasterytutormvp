@@ -8,6 +8,13 @@
       "when": 1786793818451,
       "tag": "0000_redundant_vengeance",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1788428797513,
+      "tag": "0001_massive_star_brand",
+      "breakpoints": true
     }
   ]
 }

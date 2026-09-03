@@ -4,7 +4,27 @@
 
 export type UserStatus = "pending" | "approved" | "rejected";
 export type AttachmentType = "pdf" | "doc" | "image" | "link" | "presentation" | "other";
-export type QuestionType = "multiple_choice" | "true_false" | "short_answer";
+export type QuestionType = "multiple_choice" | "true_false" | "short_answer" | "open_ended";
+export type AiGradingStatus =
+  | "correct"
+  | "mostly_correct"
+  | "partially_correct"
+  | "incorrect"
+  | "irrelevant"
+  | "unclear";
+
+export interface RubricCriterion {
+  criterion: string;
+  marks: number;
+}
+
+export interface CriterionEvaluationResult {
+  criterion: string;
+  marksAwarded: number;
+  maxMarks: number;
+  satisfied: boolean;
+  explanation: string;
+}
 
 export interface User {
   id: string;
@@ -81,6 +101,7 @@ export interface Quiz {
   id: string;
   topicId?: string;
   lessonId?: string;
+  createdBy?: string;
   title: string;
   passingScore: number;
   timeLimitMinutes?: number;
@@ -102,6 +123,13 @@ export interface Question {
   question: string;
   explanation: string;
   orderNumber: number;
+  maxMarks?: number;
+  aiGradingEnabled?: boolean;
+  expectedAnswer?: string;
+  keyConcepts?: string[];
+  acceptableAnswers?: string[];
+  commonMisconceptions?: string[];
+  gradingRubric?: RubricCriterion[];
   answers: Answer[];
 }
 
@@ -111,7 +139,47 @@ export interface QuizAttempt {
   quizId: string;
   score: number;
   failedAttempts: number;
+  totalMarks?: number;
+  maxTotalMarks?: number;
+  status?: "completed" | "grading_pending";
   createdAt: string;
+}
+
+export interface QuizAttemptAnswer {
+  id: string;
+  attemptId: string;
+  questionId: string;
+  selectedAnswerId?: string;
+  textAnswer?: string;
+  score: number;
+  maxScore: number;
+  isCorrect: boolean;
+  gradingStatus: "completed" | "pending" | "failed" | "requires_review";
+  createdAt: string;
+}
+
+export interface AiGradingResult {
+  id: string;
+  quizAttemptAnswerId: string;
+  questionId: string;
+  studentId: string;
+  score: number;
+  maxScore: number;
+  status: AiGradingStatus;
+  confidence: number;
+  criteriaResults: CriterionEvaluationResult[];
+  missingConcepts?: string[];
+  detectedMisconceptions?: string[];
+  feedback: string;
+  model: string;
+  promptVersion: string;
+  requiresTeacherReview: boolean;
+  teacherScore?: number;
+  teacherFeedback?: string;
+  teacherReviewedAt?: string;
+  teacherReviewedBy?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface LessonProgress {
