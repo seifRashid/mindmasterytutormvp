@@ -6,8 +6,10 @@ import {
   TrendingUp,
   Sparkles,
   ArrowRight,
-  Flame,
   CheckCircle2,
+  HelpCircle,
+  Brain,
+  RotateCcw,
 } from "lucide-react";
 import { Navbar } from "@/components/layout/Navbar";
 import { Sidebar } from "@/components/layout/Sidebar";
@@ -21,9 +23,17 @@ import {
   lessons as dbLessons,
   lessonProgress as dbProgress,
   quizAttempts as dbAttempts,
+  quizzes as dbQuizzes,
+  questions as dbQuestions,
 } from "@/db/schema";
 import { eq, and, inArray, isNull } from "drizzle-orm";
 import { toUuid } from "@/lib/id-mapper";
+import {
+  INITIAL_QUIZZES,
+  INITIAL_TOPICS,
+  INITIAL_SUBJECTS,
+  INITIAL_QUESTIONS,
+} from "@/lib/mock-data";
 
 // Helper function to calculate calendar streak
 async function getStreakDays(userId: string): Promise<number> {
@@ -192,6 +202,77 @@ export default async function StudentDashboardPage() {
     }
   }
 
+  // 3. Fetch Featured Quizzes for Student
+  let featuredQuizzes: any[] = [];
+  try {
+    const dbQuizList = await db.select().from(dbQuizzes);
+    const dbTopicList = await db.select().from(dbTopics);
+    const dbQuestionList = await db.select().from(dbQuestions);
+    const myAttempts = await db
+      .select()
+      .from(dbAttempts)
+      .where(eq(dbAttempts.userId, userUuid));
+
+    const topicMap = new Map<string, any>();
+    INITIAL_TOPICS.forEach((t) => topicMap.set(t.id, t));
+    dbTopicList.forEach((t) => topicMap.set(t.id, t));
+
+    const subjectMap = new Map<string, any>();
+    INITIAL_SUBJECTS.forEach((s) => subjectMap.set(s.id, s));
+    studentSubjects.forEach((s) => subjectMap.set(s.id, s));
+
+    const allQuizzesMap = new Map<string, any>();
+    INITIAL_QUIZZES.forEach((q) => allQuizzesMap.set(q.id, q));
+    dbQuizList.forEach((q) => allQuizzesMap.set(q.id, q));
+
+    const questionsByQuiz = new Map<string, any[]>();
+    INITIAL_QUESTIONS.forEach((q) => {
+      const arr = questionsByQuiz.get(q.quizId) || [];
+      arr.push(q);
+      questionsByQuiz.set(q.quizId, arr);
+    });
+    dbQuestionList.forEach((q) => {
+      const arr = questionsByQuiz.get(q.quizId) || [];
+      arr.push(q);
+      questionsByQuiz.set(q.quizId, arr);
+    });
+
+    const attemptsMap = new Map<string, any[]>();
+    myAttempts.forEach((a) => {
+      const arr = attemptsMap.get(a.quizId) || [];
+      arr.push(a);
+      attemptsMap.set(a.quizId, arr);
+    });
+
+    featuredQuizzes = Array.from(allQuizzesMap.values()).map((q) => {
+      const topic = q.topicId ? topicMap.get(q.topicId) : null;
+      const sub = topic?.subjectId ? subjectMap.get(topic.subjectId) : null;
+      const qQuestions = questionsByQuiz.get(q.id) || [];
+      const hasAiGrading = qQuestions.some(
+        (ques) => ques.type === "open_ended" || ques.aiGradingEnabled
+      );
+      const userAtts = attemptsMap.get(q.id) || [];
+      const bestScore = userAtts.length > 0 ? Math.max(...userAtts.map((a) => a.score)) : null;
+      const isPassed = (bestScore ?? 0) >= (q.passingScore || 70);
+
+      return {
+        id: q.id,
+        title: q.title,
+        topicTitle: topic?.title || "Mastery Topic",
+        subjectTitle: sub?.title || "Curriculum",
+        passingScore: q.passingScore || 70,
+        timeLimitMinutes: q.timeLimitMinutes || 0,
+        questionCount: qQuestions.length || 3,
+        hasAiGrading,
+        bestScore,
+        isPassed,
+        hasAttempts: userAtts.length > 0,
+      };
+    });
+  } catch (err) {
+    console.error("Error fetching featured quizzes for student dashboard:", err);
+  }
+
   return (
     <div className="min-h-screen bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-white flex flex-col">
       <Navbar user={session} />
@@ -200,7 +281,7 @@ export default async function StudentDashboardPage() {
         <Sidebar role="student" />
 
         <main className="flex-1 min-w-0 p-4 md:p-8 space-y-8 overflow-y-auto">
-          {/* Welcome & Streak Banner */}
+          {/* Welcome Banner */}
           <div className="p-6 md:p-8 bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 rounded-3xl text-white shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
             <div className="space-y-2 max-w-xl">
               <span className="text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-full bg-white/20 backdrop-blur-md">
@@ -210,27 +291,9 @@ export default async function StudentDashboardPage() {
                 Welcome back, {session?.name || "David"}! 👋
               </h1>
               <p className="text-xs md:text-sm text-blue-100 leading-relaxed">
-                {streakDays > 0 ? (
-                  <>
-                    You are on a <span className="font-bold underline text-white">{streakDays}-{streakDays === 1 ? "day" : "day"} learning streak</span>. Keep building your mastery!
-                  </>
-                ) : (
-                  "Welcome! Start your learning journey by watching your first lesson today."
-                )}
+                Continue building your knowledge, exploring your enrolled subjects, and mastering your lessons.
               </p>
             </div>
-
-            {streakDays > 0 && (
-              <div className="flex items-center gap-4 bg-white/10 backdrop-blur-md p-4 rounded-2xl border border-white/20 shrink-0">
-                <div className="w-12 h-12 rounded-xl bg-amber-500 text-white flex items-center justify-center font-bold shadow-lg">
-                  <Flame className="w-7 h-7 fill-current" />
-                </div>
-                <div>
-                  <p className="text-xl font-black">{streakDays} {streakDays === 1 ? "Day" : "Days"}</p>
-                  <p className="text-[11px] text-blue-100 font-medium">Active Learning Streak</p>
-                </div>
-              </div>
-            )}
           </div>
 
           {/* Continue Learning Widget */}
@@ -332,6 +395,101 @@ export default async function StudentDashboardPage() {
             ) : (
               <p className="text-xs text-slate-500 italic">
                 No active subjects found for your enrolled class. Please contact your teacher.
+              </p>
+            )}
+          </div>
+
+          {/* Interactive Practice Quizzes Section */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <HelpCircle className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                  Interactive Practice Quizzes
+                </h2>
+                <p className="text-xs text-slate-500">
+                  Assess your understanding with automated multiple-choice and AI-evaluated open-ended questions.
+                </p>
+              </div>
+              <Link
+                href="/dashboard/quizzes"
+                className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+              >
+                View All Quizzes ({featuredQuizzes.length}) →
+              </Link>
+            </div>
+
+            {featuredQuizzes.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {featuredQuizzes.slice(0, 3).map((quiz) => (
+                  <div
+                    key={quiz.id}
+                    className="p-6 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md hover:border-indigo-500/50 transition-all space-y-4 flex flex-col justify-between"
+                  >
+                    <div className="space-y-2.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 px-2.5 py-0.5 rounded-full border border-indigo-200/50 dark:border-indigo-800/50">
+                          {quiz.subjectTitle}
+                        </span>
+                        {quiz.hasAttempts ? (
+                          quiz.isPassed ? (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950 px-2 py-0.5 rounded-full">
+                              <CheckCircle2 className="w-3 h-3" />
+                              Passed ({quiz.bestScore}%)
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-bold text-amber-600 bg-amber-50 dark:bg-amber-950 px-2 py-0.5 rounded-full">
+                              Best: {quiz.bestScore}%
+                            </span>
+                          )
+                        ) : (
+                          <span className="text-[10px] text-slate-400">Ready to start</span>
+                        )}
+                      </div>
+
+                      <h3 className="text-base font-bold text-slate-900 dark:text-white line-clamp-1">
+                        {quiz.title}
+                      </h3>
+                      <p className="text-xs text-slate-500 line-clamp-1 flex items-center gap-1">
+                        <BookOpen className="w-3 h-3 shrink-0" />
+                        {quiz.topicTitle}
+                      </p>
+
+                      <div className="flex items-center gap-2 pt-1 text-[11px] text-slate-500">
+                        <span>{quiz.questionCount} Questions</span>
+                        {quiz.hasAiGrading && (
+                          <span className="text-[10px] font-bold text-purple-600 dark:text-purple-400 flex items-center gap-1">
+                            <Brain className="w-3 h-3" /> AI Graded
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                      <span className="text-[11px] text-slate-400">
+                        Pass mark: <strong className="text-slate-700 dark:text-slate-300">{quiz.passingScore}%</strong>
+                      </span>
+                      <Link
+                        href={`/dashboard/quizzes/${quiz.id}`}
+                        className="px-4 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-sm flex items-center gap-1 transition-all cursor-pointer"
+                      >
+                        {quiz.hasAttempts ? (
+                          <>
+                            <RotateCcw className="w-3 h-3" /> Retake
+                          </>
+                        ) : (
+                          <>
+                            Start Quiz <ArrowRight className="w-3 h-3" />
+                          </>
+                        )}
+                      </Link>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-slate-500 italic">
+                No practice quizzes are currently published. Check back soon!
               </p>
             )}
           </div>

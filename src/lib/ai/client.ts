@@ -18,22 +18,58 @@ export interface AiResponse {
   model: string;
 }
 
-// Configurable settings via environment variables
+/**
+ * Dynamic configuration getter that reflects runtime environment changes
+ */
+export function getAiConfig() {
+  const apiKey =
+    process.env.AI_API_KEY ||
+    process.env.GEMINI_API_KEY ||
+    process.env.OPENAI_API_KEY ||
+    "";
+
+  const provider = (
+    process.env.AI_PROVIDER ||
+    (process.env.OPENAI_API_KEY && !process.env.GEMINI_API_KEY ? "openai" : "gemini")
+  ) as "gemini" | "openai" | "custom";
+
+  const defaultModel =
+    provider === "openai"
+      ? "gpt-4o-mini"
+      : (process.env.GEMINI_MODEL || "gemini-3.1-flash-lite");
+
+  const model = process.env.AI_GRADING_MODEL || defaultModel;
+
+  return {
+    enabled: process.env.AI_GRADING_ENABLED !== "false",
+    apiKey,
+    provider,
+    model,
+    confidenceThresholdAuto: parseFloat(process.env.AI_CONFIDENCE_THRESHOLD_AUTO || "0.85"),
+    confidenceThresholdReview: parseFloat(process.env.AI_CONFIDENCE_THRESHOLD_REVIEW || "0.60"),
+    timeoutMs: parseInt(process.env.AI_TIMEOUT_MS || "25000", 10),
+    isConfigured: Boolean(apiKey),
+  };
+}
+
+// Backwards-compatible object export with dynamic getters
 export const AI_CONFIG = {
-  enabled: process.env.AI_GRADING_ENABLED !== "false",
-  apiKey: process.env.AI_API_KEY || process.env.GEMINI_API_KEY || process.env.OPENAI_API_KEY || "",
-  provider: (process.env.AI_PROVIDER || (process.env.OPENAI_API_KEY ? "openai" : "gemini")) as "gemini" | "openai" | "custom",
-  model: process.env.AI_GRADING_MODEL || (process.env.OPENAI_API_KEY ? "gpt-4o-mini" : "gemini-2.5-flash"),
-  confidenceThresholdAuto: parseFloat(process.env.AI_CONFIDENCE_THRESHOLD_AUTO || "0.85"),
-  confidenceThresholdReview: parseFloat(process.env.AI_CONFIDENCE_THRESHOLD_REVIEW || "0.60"),
-  timeoutMs: parseInt(process.env.AI_TIMEOUT_MS || "20000", 10),
+  get enabled() { return getAiConfig().enabled; },
+  get apiKey() { return getAiConfig().apiKey; },
+  get provider() { return getAiConfig().provider; },
+  get model() { return getAiConfig().model; },
+  get confidenceThresholdAuto() { return getAiConfig().confidenceThresholdAuto; },
+  get confidenceThresholdReview() { return getAiConfig().confidenceThresholdReview; },
+  get timeoutMs() { return getAiConfig().timeoutMs; },
+  get isConfigured() { return getAiConfig().isConfigured; },
 };
 
 /**
  * Call the configured AI provider with timeout protection and structured JSON parsing.
  */
 export async function callAiService(options: AiRequestOptions): Promise<AiResponse> {
-  const { apiKey, provider, model, timeoutMs } = AI_CONFIG;
+  const config = getAiConfig();
+  const { apiKey, provider, model, timeoutMs } = config;
   const effectiveTimeout = options.timeoutMs || timeoutMs;
 
   if (!apiKey) {
@@ -187,12 +223,15 @@ async function callOpenAi(
  * Sanitizes markdown code blocks (e.g. ```json ... ```) from JSON string before parsing
  */
 function cleanJsonString(str: string): string {
-  const trimmed = str.trim();
-  if (trimmed.startsWith("```json")) {
-    return trimmed.replace(/^```json\s*/, "").replace(/\s*```$/, "");
+  let cleaned = str.trim();
+  const jsonBlockMatch = cleaned.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+  if (jsonBlockMatch) {
+    return jsonBlockMatch[1].trim();
   }
-  if (trimmed.startsWith("```")) {
-    return trimmed.replace(/^```\s*/, "").replace(/\s*```$/, "");
+  const firstBrace = cleaned.indexOf("{");
+  const lastBrace = cleaned.lastIndexOf("}");
+  if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+    return cleaned.slice(firstBrace, lastBrace + 1);
   }
-  return trimmed;
+  return cleaned;
 }

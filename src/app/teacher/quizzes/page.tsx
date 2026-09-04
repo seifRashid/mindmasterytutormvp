@@ -9,17 +9,45 @@ import {
   topics as dbTopics,
   subjects as dbSubjects,
 } from "@/db/schema";
+import {
+  INITIAL_QUIZZES,
+  INITIAL_QUESTIONS,
+  INITIAL_TOPICS,
+  INITIAL_SUBJECTS,
+} from "@/lib/mock-data";
 import { HelpCircle, Plus, Edit2 } from "lucide-react";
 import Link from "next/link";
 
 export default async function TeacherQuizzesPage() {
   const session = await getSession();
 
-  // 1. Fetch live quizzes, topics, subjects, and questions from database
-  const quizzesList = await db.select().from(dbQuizzes);
-  const topicsList = await db.select().from(dbTopics);
-  const subjectsList = await db.select().from(dbSubjects);
-  const questionsList = await db.select().from(dbQuestions);
+  // 1. Fetch live quizzes, topics, subjects, and questions with fallback
+  let quizzesList: any[] = [];
+  let topicsList: any[] = [];
+  let subjectsList: any[] = [];
+  let questionsList: any[] = [];
+
+  try {
+    quizzesList = await db.select().from(dbQuizzes);
+    topicsList = await db.select().from(dbTopics);
+    subjectsList = await db.select().from(dbSubjects);
+    questionsList = await db.select().from(dbQuestions);
+  } catch (err) {
+    console.warn("Database fetch failed in TeacherQuizzesPage, falling back to mock data:", err);
+  }
+
+  if (quizzesList.length === 0) {
+    quizzesList = INITIAL_QUIZZES;
+  }
+  if (topicsList.length === 0) {
+    topicsList = INITIAL_TOPICS;
+  }
+  if (subjectsList.length === 0) {
+    subjectsList = INITIAL_SUBJECTS;
+  }
+  if (questionsList.length === 0) {
+    questionsList = INITIAL_QUESTIONS;
+  }
 
   // Question count map
   const questionCountMap: Record<string, number> = {};

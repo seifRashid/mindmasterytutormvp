@@ -13,9 +13,15 @@ import {
 import { Navbar } from "@/components/layout/Navbar";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { getSession } from "@/lib/auth";
-import { INITIAL_SUBJECTS } from "@/lib/mock-data";
+import {
+  INITIAL_SUBJECTS,
+  INITIAL_TOPICS,
+  INITIAL_LESSONS,
+  INITIAL_QUIZZES,
+} from "@/lib/mock-data";
 import { db } from "@/db";
 import {
+  subjects as dbSubjects,
   topics as dbTopics,
   lessons as dbLessons,
   quizzes as dbQuizzes,
@@ -31,23 +37,47 @@ export default async function SubjectDetailPage({
   const session = await getSession();
   const { subjectSlug } = await params;
 
-  const subject = INITIAL_SUBJECTS.find((s) => s.slug === subjectSlug);
+  // 1. Fetch subject from DB or mock data
+  let subject: any = null;
+  try {
+    const dbSub = await db.select().from(dbSubjects).where(eq(dbSubjects.slug, subjectSlug));
+    if (dbSub.length > 0) {
+      subject = dbSub[0];
+    }
+  } catch (err) {
+    console.warn("Could not fetch dbSubjects:", err);
+  }
+
+  if (!subject) {
+    subject = INITIAL_SUBJECTS.find((s) => s.slug === subjectSlug);
+  }
   if (!subject) notFound();
 
   const subjectUuid = toUuid(subject.id);
 
-  // Fetch topics for this subject
-  const topics = await db
-    .select()
-    .from(dbTopics)
-    .where(eq(dbTopics.subjectId, subjectUuid))
-    .orderBy(dbTopics.orderNumber);
+  // 2. Fetch topics for this subject
+  let topics: any[] = [];
+  try {
+    topics = await db
+      .select()
+      .from(dbTopics)
+      .where(eq(dbTopics.subjectId, subjectUuid))
+      .orderBy(dbTopics.orderNumber);
+  } catch (err) {
+    console.warn("Could not fetch dbTopics:", err);
+  }
+
+  if (topics.length === 0) {
+    topics = INITIAL_TOPICS.filter((t) => t.subjectId === subject.id);
+  }
 
   const topicIds = topics.map((t) => t.id);
 
-  // Fetch non-deleted lessons for these topics
-  const lessonsList = topicIds.length > 0
-    ? await db
+  // 3. Fetch non-deleted lessons for these topics
+  let lessonsList: any[] = [];
+  if (topicIds.length > 0) {
+    try {
+      lessonsList = await db
         .select()
         .from(dbLessons)
         .where(
@@ -57,16 +87,39 @@ export default async function SubjectDetailPage({
             eq(dbLessons.status, "published")
           )
         )
-        .orderBy(dbLessons.orderNumber)
-    : [];
+        .orderBy(dbLessons.orderNumber);
+    } catch (err) {
+      console.warn("Could not fetch dbLessons:", err);
+    }
+  }
 
-  // Fetch quizzes for these topics
-  const quizzesList = topicIds.length > 0
-    ? await db
+  if (lessonsList.length === 0) {
+    lessonsList = INITIAL_LESSONS.filter((l) => topicIds.includes(l.topicId));
+  }
+
+  // 4. Fetch quizzes for these topics
+  let quizzesList: any[] = [];
+  if (topicIds.length > 0) {
+    try {
+      quizzesList = await db
         .select()
         .from(dbQuizzes)
-        .where(inArray(dbQuizzes.topicId, topicIds))
-    : [];
+        .where(inArray(dbQuizzes.topicId, topicIds));
+    } catch (err) {
+      console.warn("Could not fetch dbQuizzes:", err);
+    }
+  }
+
+  // Merge mock quizzes if not already present
+  INITIAL_QUIZZES.forEach((mq) => {
+    if (
+      mq.topicId &&
+      (topicIds.includes(mq.topicId) || topicIds.some((tid) => toUuid(mq.topicId!) === tid)) &&
+      !quizzesList.some((q) => q.id === mq.id)
+    ) {
+      quizzesList.push(mq);
+    }
+  });
 
   return (
     <div className="min-h-screen bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-white flex flex-col">

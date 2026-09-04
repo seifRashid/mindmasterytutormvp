@@ -14,6 +14,12 @@ import {
 } from "@/db/schema";
 import { eq, and, inArray } from "drizzle-orm";
 import { toUuid } from "@/lib/id-mapper";
+import {
+  INITIAL_QUIZZES,
+  INITIAL_QUESTIONS,
+  INITIAL_TOPICS,
+  INITIAL_SUBJECTS,
+} from "@/lib/mock-data";
 
 export async function updateLessonProgressAction(
   lessonId: string,
@@ -140,8 +146,8 @@ export async function submitQuizAttemptAction(
   const userUuid = toUuid(userId);
   const quizUuid = toUuid(quizId);
 
-  // 1. Fetch Quiz and Questions from DB
-  let quiz;
+  // 1. Fetch Quiz and Questions from DB with fallback
+  let quiz: any = null;
   let quizQuestions: any[] = [];
   try {
     const quizResult = await db
@@ -149,32 +155,72 @@ export async function submitQuizAttemptAction(
       .from(dbQuizzes)
       .where(eq(dbQuizzes.id, quizUuid));
 
-    if (quizResult.length === 0) {
-      return { error: "Quiz not found." };
-    }
-    quiz = quizResult[0];
+    if (quizResult.length > 0) {
+      quiz = quizResult[0];
 
-    const questionsList = await db
-      .select()
-      .from(dbQuestions)
-      .where(eq(dbQuestions.quizId, quizUuid))
-      .orderBy(dbQuestions.orderNumber);
-
-    if (questionsList.length > 0) {
-      const questionIds = questionsList.map((q) => q.id);
-      const answersList = await db
+      const questionsList = await db
         .select()
-        .from(dbAnswers)
-        .where(inArray(dbAnswers.questionId, questionIds));
+        .from(dbQuestions)
+        .where(eq(dbQuestions.quizId, quizUuid))
+        .orderBy(dbQuestions.orderNumber);
 
-      quizQuestions = questionsList.map((q) => ({
-        ...q,
-        answers: answersList.filter((a) => a.questionId === q.id),
-      }));
+      if (questionsList.length > 0) {
+        const questionIds = questionsList.map((q) => q.id);
+        const answersList = await db
+          .select()
+          .from(dbAnswers)
+          .where(inArray(dbAnswers.questionId, questionIds));
+
+        quizQuestions = questionsList.map((q) => ({
+          ...q,
+          answers: answersList.filter((a) => a.questionId === q.id),
+        }));
+      }
     }
   } catch (err) {
-    console.error("Failed to fetch quiz data from DB:", err);
-    return { error: "Failed to retrieve quiz details from database." };
+    console.warn("Failed to fetch quiz data from DB, checking mock fallback:", err);
+  }
+
+  // Fallback to INITIAL_QUIZZES and INITIAL_QUESTIONS if not found in DB
+  if (!quiz) {
+    const mockQuiz = INITIAL_QUIZZES.find(
+      (q) => q.id === quizId || toUuid(q.id) === quizUuid
+    );
+    if (mockQuiz) {
+      quiz = {
+        id: mockQuiz.id,
+        topicId: mockQuiz.topicId || null,
+        lessonId: mockQuiz.lessonId || null,
+        title: mockQuiz.title,
+        passingScore: mockQuiz.passingScore || 70,
+        timeLimitMinutes: mockQuiz.timeLimitMinutes || 0,
+        showFeedback: mockQuiz.showFeedback ?? true,
+        createdAt: new Date(mockQuiz.createdAt),
+      };
+      const mockQuestions = INITIAL_QUESTIONS.filter(
+        (q) => q.quizId === mockQuiz.id
+      );
+      quizQuestions = mockQuestions.map((q, idx) => ({
+        id: q.id,
+        quizId: q.quizId,
+        type: q.type || "multiple_choice",
+        question: q.question,
+        explanation: q.explanation || "",
+        orderNumber: q.orderNumber || idx + 1,
+        maxMarks: (q as any).maxMarks || 1,
+        aiGradingEnabled: (q as any).aiGradingEnabled || q.type === "open_ended",
+        answers: (q.answers || []).map((a) => ({
+          id: a.id,
+          questionId: q.id,
+          answer: a.answer,
+          isCorrect: a.isCorrect,
+        })),
+      }));
+    }
+  }
+
+  if (!quiz) {
+    return { error: "Quiz not found." };
   }
 
   if (quizQuestions.length === 0) {
@@ -187,28 +233,54 @@ export async function submitQuizAttemptAction(
   let lessonNotes = "";
   try {
     if (quiz.topicId) {
-      const topicRecords = await db.select().from(dbTopics).where(eq(dbTopics.id, quiz.topicId));
+      const topicRecords = await db
+        .select()
+        .from(dbTopics)
+        .where(eq(dbTopics.id, toUuid(quiz.topicId)));
       if (topicRecords.length > 0) {
         topicTitle = topicRecords[0].title;
-        const subjectRecords = await db.select().from(dbSubjects).where(eq(dbSubjects.id, topicRecords[0].subjectId));
+        const subjectRecords = await db
+          .select()
+          .from(dbSubjects)
+          .where(eq(dbSubjects.id, topicRecords[0].subjectId));
         if (subjectRecords.length > 0) {
           subjectTitle = subjectRecords[0].title;
         }
       }
     }
     if (quiz.lessonId) {
-      const lessonRecords = await db.select().from(dbLessons).where(eq(dbLessons.id, quiz.lessonId));
+      const lessonRecords = await db
+        .select()
+        .from(dbLessons)
+        .where(eq(dbLessons.id, toUuid(quiz.lessonId)));
       if (lessonRecords.length > 0) {
-        lessonNotes = lessonRecords[0].richContent || lessonRecords[0].description || "";
+        lessonNotes =
+          lessonRecords[0].richContent ||
+          lessonRecords[0].description ||
+          "";
       }
     }
   } catch {
     // Non-blocking context lookup
   }
 
+  if (!topicTitle && quiz.topicId) {
+    const mockTopic = INITIAL_TOPICS.find(
+      (t) => t.id === quiz.topicId || toUuid(t.id) === toUuid(quiz.topicId)
+    );
+    if (mockTopic) {
+      topicTitle = mockTopic.title;
+      const mockSub = INITIAL_SUBJECTS.find(
+        (s) => s.id === mockTopic.subjectId || toUuid(s.id) === toUuid(mockTopic.subjectId)
+      );
+      if (mockSub) subjectTitle = mockSub.title;
+    }
+  }
+
   // 2. Compute total possible marks and initialize Attempt record
   const totalMaxMarks = quizQuestions.reduce((sum, q) => sum + (q.maxMarks || 1), 0);
   const attemptId = crypto.randomUUID();
+  let attemptSavedToDb = false;
 
   try {
     await db.insert(dbAttempts).values({
@@ -222,8 +294,9 @@ export async function submitQuizAttemptAction(
       failedAttempts: 0,
       createdAt: new Date(),
     });
+    attemptSavedToDb = true;
   } catch (err) {
-    console.error("Failed to initialize quiz attempt:", err);
+    console.warn("Failed to initialize quiz attempt in DB:", err);
   }
 
   // 3. Grade each question and store individual answer records
@@ -241,43 +314,49 @@ export async function submitQuizAttemptAction(
       if (q.aiGradingEnabled) {
         if (!studentText) {
           // Empty answer
-          await db.insert(dbAttemptAnswers).values({
-            id: answerRowId,
-            attemptId,
-            questionId: q.id,
-            textAnswer: "",
-            score: 0,
-            maxScore: qMaxMarks,
-            isCorrect: false,
-            gradingStatus: "completed",
-            createdAt: new Date(),
-          });
+          if (attemptSavedToDb) {
+            try {
+              await db.insert(dbAttemptAnswers).values({
+                id: answerRowId,
+                attemptId,
+                questionId: q.id,
+                textAnswer: "",
+                score: 0,
+                maxScore: qMaxMarks,
+                isCorrect: false,
+                gradingStatus: "completed",
+                createdAt: new Date(),
+              });
 
-          await db.insert(dbAiResults).values({
-            id: crypto.randomUUID(),
-            quizAttemptAnswerId: answerRowId,
-            questionId: q.id,
-            studentId: userUuid,
-            score: 0,
-            maxScore: qMaxMarks,
-            status: "incorrect",
-            confidence: 1.0,
-            criteriaResults: (q.gradingRubric || []).map((r: any) => ({
-              criterion: r.criterion,
-              marksAwarded: 0,
-              maxMarks: r.marks,
-              satisfied: false,
-              explanation: "No answer was provided.",
-            })),
-            missingConcepts: q.keyConcepts || [],
-            detectedMisconceptions: [],
-            feedback: "No answer was provided. Please write a response to receive marks.",
-            model: "system-deterministic",
-            promptVersion: "v1",
-            requiresTeacherReview: false,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          });
+              await db.insert(dbAiResults).values({
+                id: crypto.randomUUID(),
+                quizAttemptAnswerId: answerRowId,
+                questionId: q.id,
+                studentId: userUuid,
+                score: 0,
+                maxScore: qMaxMarks,
+                status: "incorrect",
+                confidence: 1.0,
+                criteriaResults: (q.gradingRubric || []).map((r: any) => ({
+                  criterion: r.criterion,
+                  marksAwarded: 0,
+                  maxMarks: r.marks,
+                  satisfied: false,
+                  explanation: "No answer was provided.",
+                })),
+                missingConcepts: q.keyConcepts || [],
+                detectedMisconceptions: [],
+                feedback: "No answer was provided. Please write a response to receive marks.",
+                model: "system-deterministic",
+                promptVersion: "v1",
+                requiresTeacherReview: false,
+                createdAt: new Date(),
+                updatedAt: new Date(),
+              });
+            } catch (err) {
+              console.warn("Failed to store empty AI answer to DB:", err);
+            }
+          }
 
           questionResults.push({
             questionId: q.id,
@@ -321,37 +400,43 @@ export async function submitQuizAttemptAction(
             const awarded = Math.min(qMaxMarks, Math.max(0, aiEval.score));
             totalAwardedMarks += awarded;
 
-            await db.insert(dbAttemptAnswers).values({
-              id: answerRowId,
-              attemptId,
-              questionId: q.id,
-              textAnswer: studentText,
-              score: awarded,
-              maxScore: qMaxMarks,
-              isCorrect: awarded === qMaxMarks,
-              gradingStatus: aiEval.requiresTeacherReview ? "requires_review" : "completed",
-              createdAt: new Date(),
-            });
+            if (attemptSavedToDb) {
+              try {
+                await db.insert(dbAttemptAnswers).values({
+                  id: answerRowId,
+                  attemptId,
+                  questionId: q.id,
+                  textAnswer: studentText,
+                  score: awarded,
+                  maxScore: qMaxMarks,
+                  isCorrect: awarded === qMaxMarks,
+                  gradingStatus: aiEval.requiresTeacherReview ? "requires_review" : "completed",
+                  createdAt: new Date(),
+                });
 
-            await db.insert(dbAiResults).values({
-              id: crypto.randomUUID(),
-              quizAttemptAnswerId: answerRowId,
-              questionId: q.id,
-              studentId: userUuid,
-              score: awarded,
-              maxScore: qMaxMarks,
-              status: aiEval.status,
-              confidence: aiEval.confidence,
-              criteriaResults: aiEval.criteriaResults,
-              missingConcepts: aiEval.missingConcepts,
-              detectedMisconceptions: aiEval.detectedMisconceptions,
-              feedback: aiEval.feedback,
-              model: aiEval.model,
-              promptVersion: aiEval.promptVersion,
-              requiresTeacherReview: aiEval.requiresTeacherReview,
-              createdAt: new Date(),
-              updatedAt: new Date(),
-            });
+                await db.insert(dbAiResults).values({
+                  id: crypto.randomUUID(),
+                  quizAttemptAnswerId: answerRowId,
+                  questionId: q.id,
+                  studentId: userUuid,
+                  score: awarded,
+                  maxScore: qMaxMarks,
+                  status: aiEval.status,
+                  confidence: aiEval.confidence,
+                  criteriaResults: aiEval.criteriaResults,
+                  missingConcepts: aiEval.missingConcepts,
+                  detectedMisconceptions: aiEval.detectedMisconceptions,
+                  feedback: aiEval.feedback,
+                  model: aiEval.model,
+                  promptVersion: aiEval.promptVersion,
+                  requiresTeacherReview: aiEval.requiresTeacherReview,
+                  createdAt: new Date(),
+                  updatedAt: new Date(),
+                });
+              } catch (err) {
+                console.warn("Failed to store AI answer to DB:", err);
+              }
+            }
 
             questionResults.push({
               questionId: q.id,
@@ -367,17 +452,23 @@ export async function submitQuizAttemptAction(
             console.error("AI grading failed during submission, marking pending:", aiErr);
             hasPendingAi = true;
 
-            await db.insert(dbAttemptAnswers).values({
-              id: answerRowId,
-              attemptId,
-              questionId: q.id,
-              textAnswer: studentText,
-              score: 0,
-              maxScore: qMaxMarks,
-              isCorrect: false,
-              gradingStatus: "pending",
-              createdAt: new Date(),
-            });
+            if (attemptSavedToDb) {
+              try {
+                await db.insert(dbAttemptAnswers).values({
+                  id: answerRowId,
+                  attemptId,
+                  questionId: q.id,
+                  textAnswer: studentText,
+                  score: 0,
+                  maxScore: qMaxMarks,
+                  isCorrect: false,
+                  gradingStatus: "pending",
+                  createdAt: new Date(),
+                });
+              } catch (err) {
+                console.warn("Failed to store pending AI attempt answer to DB:", err);
+              }
+            }
 
             questionResults.push({
               questionId: q.id,
@@ -393,17 +484,23 @@ export async function submitQuizAttemptAction(
         }
       } else {
         // Open-ended without AI grading
-        await db.insert(dbAttemptAnswers).values({
-          id: answerRowId,
-          attemptId,
-          questionId: q.id,
-          textAnswer: studentText,
-          score: 0,
-          maxScore: qMaxMarks,
-          isCorrect: false,
-          gradingStatus: "completed",
-          createdAt: new Date(),
-        });
+        if (attemptSavedToDb) {
+          try {
+            await db.insert(dbAttemptAnswers).values({
+              id: answerRowId,
+              attemptId,
+              questionId: q.id,
+              textAnswer: studentText,
+              score: 0,
+              maxScore: qMaxMarks,
+              isCorrect: false,
+              gradingStatus: "completed",
+              createdAt: new Date(),
+            });
+          } catch (err) {
+            console.warn("Failed to store open-ended answer to DB:", err);
+          }
+        }
 
         questionResults.push({
           questionId: q.id,
@@ -422,17 +519,23 @@ export async function submitQuizAttemptAction(
       const awarded = isCorrect ? qMaxMarks : 0;
       totalAwardedMarks += awarded;
 
-      await db.insert(dbAttemptAnswers).values({
-        id: answerRowId,
-        attemptId,
-        questionId: q.id,
-        textAnswer: studentText,
-        score: awarded,
-        maxScore: qMaxMarks,
-        isCorrect,
-        gradingStatus: "completed",
-        createdAt: new Date(),
-      });
+      if (attemptSavedToDb) {
+        try {
+          await db.insert(dbAttemptAnswers).values({
+            id: answerRowId,
+            attemptId,
+            questionId: q.id,
+            textAnswer: studentText,
+            score: awarded,
+            maxScore: qMaxMarks,
+            isCorrect,
+            gradingStatus: "completed",
+            createdAt: new Date(),
+          });
+        } catch (err) {
+          console.warn("Failed to store short answer to DB:", err);
+        }
+      }
 
       questionResults.push({
         questionId: q.id,
@@ -452,17 +555,23 @@ export async function submitQuizAttemptAction(
       const awarded = isCorrect ? qMaxMarks : 0;
       totalAwardedMarks += awarded;
 
-      await db.insert(dbAttemptAnswers).values({
-        id: answerRowId,
-        attemptId,
-        questionId: q.id,
-        selectedAnswerId: selectedAnswerId ? toUuid(selectedAnswerId) : null,
-        score: awarded,
-        maxScore: qMaxMarks,
-        isCorrect,
-        gradingStatus: "completed",
-        createdAt: new Date(),
-      });
+      if (attemptSavedToDb) {
+        try {
+          await db.insert(dbAttemptAnswers).values({
+            id: answerRowId,
+            attemptId,
+            questionId: q.id,
+            selectedAnswerId: selectedAnswerId ? toUuid(selectedAnswerId) : null,
+            score: awarded,
+            maxScore: qMaxMarks,
+            isCorrect,
+            gradingStatus: "completed",
+            createdAt: new Date(),
+          });
+        } catch (err) {
+          console.warn("Failed to store multiple choice answer to DB:", err);
+        }
+      }
 
       questionResults.push({
         questionId: q.id,
@@ -483,31 +592,33 @@ export async function submitQuizAttemptAction(
 
   // 5. Track attempt history in DB
   let newFailedAttempts = 0;
-  try {
-    const pastAttempts = await db
-      .select()
-      .from(dbAttempts)
-      .where(and(eq(dbAttempts.userId, userUuid), eq(dbAttempts.quizId, quizUuid)));
+  if (attemptSavedToDb) {
+    try {
+      const pastAttempts = await db
+        .select()
+        .from(dbAttempts)
+        .where(and(eq(dbAttempts.userId, userUuid), eq(dbAttempts.quizId, quizUuid)));
 
-    const previousFailedCount = pastAttempts.reduce(
-      (max: number, a: any) => Math.max(max, a.failedAttempts || 0),
-      0
-    );
+      const previousFailedCount = pastAttempts.reduce(
+        (max: number, a: any) => Math.max(max, a.failedAttempts || 0),
+        0
+      );
 
-    newFailedAttempts = passed ? 0 : previousFailedCount + 1;
+      newFailedAttempts = passed ? 0 : previousFailedCount + 1;
 
-    await db
-      .update(dbAttempts)
-      .set({
-        score,
-        totalMarks: totalAwardedMarks,
-        maxTotalMarks: totalMaxMarks,
-        status: hasPendingAi ? "grading_pending" : "completed",
-        failedAttempts: newFailedAttempts,
-      })
-      .where(eq(dbAttempts.id, attemptId));
-  } catch (err) {
-    console.error("Failed to update quiz attempt with final score:", err);
+      await db
+        .update(dbAttempts)
+        .set({
+          score,
+          totalMarks: totalAwardedMarks,
+          maxTotalMarks: totalMaxMarks,
+          status: hasPendingAi ? "grading_pending" : "completed",
+          failedAttempts: newFailedAttempts,
+        })
+        .where(eq(dbAttempts.id, attemptId));
+    } catch (err) {
+      console.warn("Failed to update quiz attempt with final score in DB:", err);
+    }
   }
 
   // Reveal explanations after 3 failed attempts

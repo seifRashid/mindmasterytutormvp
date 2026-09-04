@@ -1,6 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import fs from "fs";
+import path from "path";
 import {
   ClassLevel,
   INITIAL_CLASSES,
@@ -20,6 +22,8 @@ import { subjects, classes as dbClasses, topics as dbTopics, quizzes as dbQuizze
 import { toUuid } from "@/lib/id-mapper";
 import { eq } from "drizzle-orm";
 import { getSession } from "@/lib/auth";
+import { generateMarkingGuide, evaluateStudentAnswer } from "@/lib/ai/grading";
+import { getAiConfig } from "@/lib/ai/client";
 
 export async function createClassAction(formData: FormData) {
   const name = formData.get("name") as string;
@@ -429,8 +433,6 @@ export async function editTopicAction(formData: FormData) {
   return { success: true };
 }
 
-import { generateMarkingGuide, evaluateStudentAnswer } from "@/lib/ai/grading";
-
 export interface SaveQuizPayload {
   id?: string;
   topicId: string;
@@ -651,6 +653,77 @@ export async function editQuizWithQuestionsAction(
 }
 
 /**
+ * Check if the AI provider has been configured with an API key
+ */
+export async function checkAiConfigAction() {
+  const config = getAiConfig();
+  return {
+    isConfigured: config.isConfigured,
+    provider: config.provider,
+    model: config.model,
+  };
+}
+
+/**
+ * Save or update the AI API key in .env and runtime environment
+ */
+export async function saveAiConfigAction(data: {
+  apiKey: string;
+  provider?: "gemini" | "openai";
+  model?: string;
+}) {
+  const session = await getSession();
+  if (!session || (session.role !== "admin" && session.role !== "teacher")) {
+    return { error: "Unauthorized. Teacher or Admin role required." };
+  }
+
+  const key = data.apiKey?.trim();
+  if (!key) {
+    return { error: "Please provide a valid API key." };
+  }
+
+  const provider = data.provider || "gemini";
+  const model = data.model || (provider === "openai" ? "gpt-4o-mini" : "gemini-1.5-flash");
+
+  try {
+    const envPath = path.resolve(process.cwd(), ".env");
+    let envContent = "";
+    if (fs.existsSync(envPath)) {
+      envContent = fs.readFileSync(envPath, "utf-8");
+    }
+
+    // Set in runtime process.env immediately
+    process.env.AI_PROVIDER = provider;
+    process.env.AI_API_KEY = key;
+    process.env.GEMINI_API_KEY = key;
+    process.env.GEMINI_MODEL = model;
+    process.env.AI_GRADING_MODEL = model;
+
+    // Update .env file
+    const updateOrAppend = (content: string, keyName: string, val: string) => {
+      const regex = new RegExp(`^${keyName}=.*`, "m");
+      if (regex.test(content)) {
+        return content.replace(regex, `${keyName}="${val}"`);
+      }
+      return `${content.trim()}\n${keyName}="${val}"\n`;
+    };
+
+    let updated = updateOrAppend(envContent, "AI_PROVIDER", provider);
+    updated = updateOrAppend(updated, "AI_API_KEY", key);
+    updated = updateOrAppend(updated, "GEMINI_API_KEY", key);
+    updated = updateOrAppend(updated, "GEMINI_MODEL", model);
+    updated = updateOrAppend(updated, "AI_GRADING_MODEL", model);
+
+    fs.writeFileSync(envPath, updated, "utf-8");
+
+    return { success: true, message: "AI API Key configured successfully." };
+  } catch (err: any) {
+    console.error("Failed to save AI config:", err);
+    return { error: "Failed to persist API key to .env file." };
+  }
+}
+
+/**
  * Server action to automatically generate marking guide for open-ended question
  */
 export async function generateMarkingGuideAction(input: {
@@ -666,6 +739,14 @@ export async function generateMarkingGuideAction(input: {
 
   if (!input.question?.trim()) {
     return { error: "Please enter a question statement first." };
+  }
+
+  const config = getAiConfig();
+  if (!config.isConfigured) {
+    return {
+      error: "Google Gemini API Key is missing. Please enter your Gemini API Key to generate real, curriculum-aligned marking guides.",
+      isConfigured: false,
+    };
   }
 
   // Fetch topic and subject context if available
@@ -700,10 +781,10 @@ export async function generateMarkingGuideAction(input: {
       subject: subjectTitle,
     });
 
-    return { success: true, guide };
+    return { success: true, guide, isConfigured: true };
   } catch (err: any) {
     console.error("Error generating marking guide:", err);
-    return { error: err?.message || "Failed to generate marking guide. Please try again." };
+    return { error: err?.message || "Failed to generate marking guide. Please check your Gemini API key." };
   }
 }
 

@@ -24,12 +24,15 @@ import {
   XCircle,
   ChevronDown,
   ChevronUp,
+  Key,
+  ExternalLink,
 } from "lucide-react";
 import {
   saveQuizWithQuestionsAction,
   SaveQuizPayload,
   generateMarkingGuideAction,
   testAiGradingAction,
+  saveAiConfigAction,
 } from "@/actions/admin-actions";
 import { RubricCriterion, CriterionEvaluationResult } from "@/lib/types";
 
@@ -105,6 +108,12 @@ export function QuizBuilder({
   const [sampleAnswers, setSampleAnswers] = useState<Record<number, string>>({});
   const [testPreviews, setTestPreviews] = useState<Record<number, any>>({});
   const [expandedPreviewIdx, setExpandedPreviewIdx] = useState<number | null>(null);
+
+  // AI API Key Setup Modal
+  const [showApiKeyModal, setShowApiKeyModal] = useState(false);
+  const [apiKeyInput, setApiKeyInput] = useState("");
+  const [isSavingKey, setIsSavingKey] = useState(false);
+  const [pendingGuideQIdx, setPendingGuideQIdx] = useState<number | null>(null);
 
   // Questions State
   const [questions, setQuestions] = useState<QuestionItem[]>(() => {
@@ -413,20 +422,55 @@ export function QuizBuilder({
 
     if (res.guide) {
       setGeneratedGuide({ qIdx: qIndex, guide: res.guide });
+    } else if (res.isConfigured === false) {
+      setPendingGuideQIdx(qIndex);
+      setShowApiKeyModal(true);
     } else {
       alert(res.error || "Failed to generate marking guide.");
+    }
+  };
+
+  const handleSaveApiKey = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!apiKeyInput.trim()) {
+      alert("Please enter your Google Gemini API Key.");
+      return;
+    }
+
+    setIsSavingKey(true);
+    const res = await saveAiConfigAction({
+      apiKey: apiKeyInput.trim(),
+      provider: "gemini",
+      model: "gemini-1.5-flash",
+    });
+    setIsSavingKey(false);
+
+    if (res.success) {
+      setShowApiKeyModal(false);
+      const targetQIdx = pendingGuideQIdx;
+      setPendingGuideQIdx(null);
+      if (targetQIdx !== null) {
+        handleGenerateGuide(targetQIdx);
+      } else {
+        alert("Google Gemini API Key saved successfully!");
+      }
+    } else {
+      alert(res.error || "Failed to save API key.");
     }
   };
 
   const handleApplyGuide = (qIndex: number, guide: any) => {
     setQuestions((prev) => {
       const updated = [...prev];
-      updated[qIndex].expectedAnswer = guide.expectedAnswer;
-      updated[qIndex].keyConcepts = guide.keyConcepts;
-      updated[qIndex].acceptableAnswers = guide.acceptableAnswers;
-      updated[qIndex].commonMisconceptions = guide.commonMisconceptions;
-      updated[qIndex].gradingRubric = guide.rubric;
-      updated[qIndex].maxMarks = guide.maxMarks;
+      updated[qIndex] = {
+        ...updated[qIndex],
+        expectedAnswer: guide.expectedAnswer || "",
+        keyConcepts: Array.isArray(guide.keyConcepts) && guide.keyConcepts.length > 0 ? [...guide.keyConcepts] : [""],
+        acceptableAnswers: Array.isArray(guide.acceptableAnswers) && guide.acceptableAnswers.length > 0 ? [...guide.acceptableAnswers] : [""],
+        commonMisconceptions: Array.isArray(guide.commonMisconceptions) && guide.commonMisconceptions.length > 0 ? [...guide.commonMisconceptions] : [""],
+        gradingRubric: Array.isArray(guide.rubric) ? guide.rubric.map((r: any) => ({ ...r })) : [],
+        maxMarks: guide.maxMarks || updated[qIndex].maxMarks || 4,
+      };
       return updated;
     });
     setGeneratedGuide(null);
@@ -1477,6 +1521,87 @@ export function QuizBuilder({
           )}
         </button>
       </div>
+
+      {/* AI Key Configuration Modal */}
+      {showApiKeyModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-sm p-4 animate-in fade-in">
+          <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4">
+            <div className="flex items-center gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="w-10 h-10 rounded-2xl bg-purple-100 dark:bg-purple-950 text-purple-600 flex items-center justify-center">
+                <Brain className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                  Configure Google Gemini AI Key
+                </h3>
+                <p className="text-[11px] text-slate-500">
+                  Required to generate live, curriculum-aligned marking guides.
+                </p>
+              </div>
+            </div>
+
+            <div className="text-xs text-slate-600 dark:text-slate-400 space-y-2">
+              <p>
+                To enable automated AI marking guides and semantic grading, please provide your Google Gemini API key.
+              </p>
+              <a
+                href="https://aistudio.google.com/app/apikey"
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1 text-purple-600 dark:text-purple-400 font-bold hover:underline"
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+                Get a free API key from Google AI Studio
+              </a>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                Gemini API Key:
+              </label>
+              <div className="relative">
+                <input
+                  type="password"
+                  value={apiKeyInput}
+                  onChange={(e) => setApiKeyInput(e.target.value)}
+                  placeholder="AIzaSy..."
+                  className="w-full pl-9 pr-3 py-2.5 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500 font-mono"
+                />
+                <Key className="w-4 h-4 text-slate-400 absolute left-3 top-3 pointer-events-none" />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowApiKeyModal(false);
+                  setPendingGuideQIdx(null);
+                }}
+                className="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveApiKey}
+                disabled={isSavingKey || !apiKeyInput.trim()}
+                className="px-5 py-2 text-xs font-bold rounded-xl bg-purple-600 hover:bg-purple-700 text-white shadow-sm disabled:opacity-50 flex items-center gap-1.5 cursor-pointer"
+              >
+                {isSavingKey ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" /> Saving...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-3.5 h-3.5" /> Save & Generate Guide
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </form>
   );
 }

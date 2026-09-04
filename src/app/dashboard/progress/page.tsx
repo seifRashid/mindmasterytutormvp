@@ -2,8 +2,6 @@ import {
   TrendingUp,
   Award,
   Video,
-  Flame,
-  Sparkles,
 } from "lucide-react";
 import { Navbar } from "@/components/layout/Navbar";
 import { Sidebar } from "@/components/layout/Sidebar";
@@ -186,12 +184,12 @@ export default async function StudentProgressPage() {
               Your Learning Progress
             </h1>
             <p className="text-xs md:text-sm text-slate-500 mt-1">
-              Track your subject completion percentages, quiz scores, and streak milestones.
+              Track your subject completion percentages and quiz scores.
             </p>
           </div>
 
           {/* Quick Stats Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
             <div className="p-6 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-2">
               <div className="w-10 h-10 rounded-2xl bg-blue-100 dark:bg-blue-950 text-blue-600 flex items-center justify-center font-bold">
                 <Video className="w-5 h-5" />
@@ -210,26 +208,6 @@ export default async function StudentProgressPage() {
                 {avgQuizScore}% Avg
               </p>
               <p className="text-xs text-slate-500 font-medium">Quiz Accuracy Score</p>
-            </div>
-
-            <div className="p-6 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-2">
-              <div className="w-10 h-10 rounded-2xl bg-amber-100 dark:bg-amber-950 text-amber-600 flex items-center justify-center font-bold">
-                <Flame className="w-5 h-5 fill-current" />
-              </div>
-              <p className="text-2xl font-black text-slate-900 dark:text-white">
-                {streakDays} {streakDays === 1 ? "Day" : "Days"}
-              </p>
-              <p className="text-xs text-slate-500 font-medium">Current Learning Streak</p>
-            </div>
-
-            <div className="p-6 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-2">
-              <div className="w-10 h-10 rounded-2xl bg-cyan-100 dark:bg-cyan-950 text-cyan-600 flex items-center justify-center font-bold">
-                <Sparkles className="w-5 h-5" />
-              </div>
-              <p className="text-2xl font-black text-slate-900 dark:text-white">
-                {badgesCount} {badgesCount === 1 ? "Badge" : "Badges"}
-              </p>
-              <p className="text-xs text-slate-500 font-medium">Mastery Certificates</p>
             </div>
           </div>
 

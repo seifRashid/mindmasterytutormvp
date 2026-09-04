@@ -47,6 +47,7 @@ export function Sidebar({ role }: SidebarProps) {
 
   const studentLinks = [
     { label: "Overview", href: "/dashboard", icon: LayoutDashboard },
+    { label: "Practice Quizzes", href: "/dashboard/quizzes", icon: HelpCircle },
     { label: "My Subjects", href: "/dashboard/subjects", icon: BookOpen },
     { label: "Learning Progress", href: "/dashboard/progress", icon: TrendingUp },
     { label: "My Profile", href: "/dashboard/profile", icon: User },
