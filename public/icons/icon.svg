@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1e40af" />
+      <stop offset="50%" stop-color="#2563eb" />
+      <stop offset="100%" stop-color="#06b6d4" />
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#0f172a" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+  <rect width="512" height="512" rx="115" fill="url(#bg)"/>
+  <g filter="url(#shadow)">
+    <!-- Graduation Cap Top -->
+    <polygon points="256,120 420,185 256,250 92,185" fill="#ffffff"/>
+    <!-- Graduation Cap Skull -->
+    <path d="M165,220 L165,275 C165,315 347,315 347,275 L347,220 Z" fill="#e0e7ff"/>
+    <!-- Tassel -->
+    <path d="M125,198 L120,300 C118,312 108,312 106,300 L115,194" fill="#facc15" stroke="#ca8a04" stroke-width="2"/>
+    <!-- Open Book -->
+    <path d="M130,340 Q193,310 256,335 Q319,310 382,340 L382,410 Q319,380 256,405 Q193,380 130,410 Z" fill="#ffffff"/>
+    <!-- Center Divider & Star -->
+    <line x1="256" y1="335" x2="256" y2="405" stroke="#93c5fd" stroke-width="4"/>
+    <polygon points="256,355 261,368 274,370 264,379 267,392 256,385 245,392 248,379 238,370 251,368" fill="#facc15"/>
+  </g>
+</svg>

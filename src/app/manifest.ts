@@ -1,0 +1,65 @@
+import type { MetadataRoute } from "next";
+
+export default function manifest(): MetadataRoute.Manifest {
+  return {
+    name: "Mind Mastery Tutor",
+    short_name: "MindMastery",
+    description:
+      "Interactive e-learning and tutoring platform with video lessons, AI-powered grading, and practice quizzes.",
+    start_url: "/",
+    display: "standalone",
+    background_color: "#0f172a",
+    theme_color: "#2563eb",
+    orientation: "portrait-primary",
+    scope: "/",
+    icons: [
+      {
+        src: "/icons/icon-192x192.png",
+        sizes: "192x192",
+        type: "image/png",
+        purpose: "any",
+      },
+      {
+        src: "/icons/icon-512x512.png",
+        sizes: "512x512",
+        type: "image/png",
+        purpose: "any",
+      },
+      {
+        src: "/icons/icon-maskable-512x512.png",
+        sizes: "512x512",
+        type: "image/png",
+        purpose: "maskable",
+      },
+      {
+        src: "/icons/icon.svg",
+        sizes: "any",
+        type: "image/svg+xml",
+      },
+    ],
+    categories: ["education", "productivity"],
+    shortcuts: [
+      {
+        name: "Practice Quizzes",
+        short_name: "Quizzes",
+        description: "Open interactive practice quizzes",
+        url: "/dashboard/quizzes",
+        icons: [{ src: "/icons/icon-192x192.png", sizes: "192x192" }],
+      },
+      {
+        name: "My Subjects",
+        short_name: "Subjects",
+        description: "Browse enrolled subjects and lessons",
+        url: "/dashboard/subjects",
+        icons: [{ src: "/icons/icon-192x192.png", sizes: "192x192" }],
+      },
+      {
+        name: "Learning Progress",
+        short_name: "Progress",
+        description: "Check your progress and accuracy",
+        url: "/dashboard/progress",
+        icons: [{ src: "/icons/icon-192x192.png", sizes: "192x192" }],
+      },
+    ],
+  };
+}
