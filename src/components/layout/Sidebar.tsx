@@ -20,6 +20,8 @@ import {
   Brain,
 } from "lucide-react";
 
+import { MobileBottomNav } from "@/components/layout/MobileBottomNav";
+
 interface SidebarProps {
   role: "student" | "teacher" | "admin";
 }
@@ -135,45 +137,39 @@ export function Sidebar({ role }: SidebarProps) {
 
   return (
     <>
-      {/* Mobile toggle button — shown inside the page layout */}
-      <button
-        onTouchStart={(e) => { e.stopPropagation(); }}
-        onClick={() => setIsOpen(true)}
-        className="md:hidden fixed bottom-6 left-5 z-50 w-14 h-14 rounded-full bg-blue-600 text-white shadow-2xl shadow-blue-500/40 flex items-center justify-center active:scale-90 transition-transform cursor-pointer"
-        aria-label="Open sidebar menu"
-        style={{ touchAction: "manipulation" }}
-      >
-        <Menu className="w-6 h-6" />
-      </button>
+      {/* Native Mobile Bottom Navigation Bar (md:hidden) */}
+      <MobileBottomNav role={role} onOpenMoreDrawer={() => setIsOpen(true)} />
 
-
-      {/* Mobile Overlay Backdrop */}
+      {/* Mobile Drawer Overlay Backdrop */}
       {isOpen && (
         <div
-          className="md:hidden fixed inset-0 z-40 bg-slate-950/60 backdrop-blur-sm"
+          className="md:hidden fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm transition-opacity"
           onClick={() => setIsOpen(false)}
         />
       )}
 
-      {/* Mobile Drawer Sidebar */}
+      {/* Mobile Drawer Sheet */}
       <aside
         className={`
-          md:hidden fixed top-0 left-0 z-50 h-full w-72 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 shadow-2xl
-          transform transition-transform duration-300 ease-in-out
-          ${isOpen ? "translate-x-0" : "-translate-x-full"}
+          md:hidden fixed top-0 right-0 z-50 h-full w-80 max-w-[85vw] bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 shadow-2xl
+          transform transition-transform duration-300 ease-out pt-safe pb-safe
+          ${isOpen ? "translate-x-0" : "translate-x-full"}
         `}
       >
-        {/* Close button */}
-        <div className="flex items-center justify-between px-4 h-16 border-b border-slate-200 dark:border-slate-800">
-          <span className="text-sm font-bold text-slate-900 dark:text-white">Navigation</span>
+        {/* Drawer Header */}
+        <div className="flex items-center justify-between px-5 h-16 border-b border-slate-200 dark:border-slate-800">
+          <span className="text-base font-bold text-slate-900 dark:text-white capitalize">
+            {role} Menu
+          </span>
           <button
             onClick={() => setIsOpen(false)}
-            className="p-2 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
+            className="w-9 h-9 flex items-center justify-center rounded-xl text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-95 transition-all cursor-pointer"
+            aria-label="Close menu"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
-        <div className="overflow-y-auto h-[calc(100%-4rem)]">
+        <div className="overflow-y-auto h-[calc(100%-4rem)] touch-scroll">
           <SidebarContent />
         </div>
       </aside>
@@ -185,3 +181,4 @@ export function Sidebar({ role }: SidebarProps) {
     </>
   );
 }
+

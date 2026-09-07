@@ -165,7 +165,7 @@ export default async function StudentQuizzesPage() {
       <div className="flex-1 flex max-w-7xl w-full mx-auto overflow-x-hidden">
         <Sidebar role="student" />
 
-        <main className="flex-1 min-w-0 p-4 md:p-8 space-y-8 overflow-y-auto">
+        <main className="flex-1 min-w-0 p-4 md:p-8 pb-24 md:pb-8 space-y-8 overflow-y-auto">
           <StudentQuizList quizzes={quizCards} studentName={currentUser.name || "Student"} />
         </main>
       </div>

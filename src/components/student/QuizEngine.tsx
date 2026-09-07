@@ -465,32 +465,32 @@ export function QuizEngine({ quiz, questions, topicSlug }: QuizEngineProps) {
 
               {/* ── QUESTION INPUTS ── */}
               {q.type === "open_ended" ? (
-                <div className="space-y-2 pl-10">
+                <div className="space-y-2 pl-0 sm:pl-10">
                   <textarea
                     rows={4}
                     value={textAnswers[q.id] || ""}
                     onChange={(e) => handleTextChange(q.id, e.target.value)}
                     placeholder="Write your explanation in full sentences. Your answer will be evaluated on key concepts and understanding..."
-                    className="w-full p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-xs font-medium focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all resize-y"
+                    className="w-full p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-sm sm:text-xs font-medium focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all resize-y"
                   />
-                  <div className="flex items-center justify-between text-[11px] text-slate-400">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between text-[11px] text-slate-400 gap-1">
                     <span>Express the concept in your own words. Partial marks are awarded.</span>
                     <span>{(textAnswers[q.id] || "").length} characters</span>
                   </div>
                 </div>
               ) : q.type === "short_answer" ? (
-                <div className="space-y-2 pl-10">
+                <div className="space-y-2 pl-0 sm:pl-10">
                   <input
                     type="text"
                     value={textAnswers[q.id] || ""}
                     onChange={(e) => handleTextChange(q.id, e.target.value)}
                     placeholder="Type your answer here..."
-                    className="w-full p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-xs font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                    className="w-full p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-sm sm:text-xs font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
                   />
                 </div>
               ) : (
                 /* Multiple Choice / True-False */
-                <div className="space-y-2 pl-10">
+                <div className="space-y-2.5 pl-0 sm:pl-10">
                   {q.answers.map((ans) => {
                     const isSelected = selectedAnswers[q.id] === ans.id;
                     return (
@@ -498,21 +498,21 @@ export function QuizEngine({ quiz, questions, topicSlug }: QuizEngineProps) {
                         key={ans.id}
                         type="button"
                         onClick={() => handleSelect(q.id, ans.id)}
-                        className={`w-full text-left p-3.5 rounded-xl border text-xs font-medium transition-all flex items-center justify-between cursor-pointer ${
+                        className={`w-full min-h-[48px] text-left p-3.5 rounded-xl border text-xs sm:text-sm font-medium transition-all flex items-center justify-between cursor-pointer active:scale-[0.99] touch-manipulation select-none ${
                           isSelected
-                            ? "border-blue-600 bg-blue-50 dark:bg-blue-950/60 text-blue-950 dark:text-blue-200 ring-2 ring-blue-500/20"
+                            ? "border-blue-600 bg-blue-50 dark:bg-blue-950/60 text-blue-950 dark:text-blue-200 ring-2 ring-blue-500/20 shadow-sm"
                             : "border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/70 text-slate-700 dark:text-slate-200 hover:border-slate-300 dark:hover:border-slate-700"
                         }`}
                       >
-                        <span>{ans.answer}</span>
+                        <span className="leading-snug pr-3">{ans.answer}</span>
                         <div
-                          className={`w-4 h-4 rounded-full border flex items-center justify-center ${
+                          className={`w-5 h-5 rounded-full border flex items-center justify-center shrink-0 transition-colors ${
                             isSelected
                               ? "border-blue-600 bg-blue-600 text-white"
                               : "border-slate-300 dark:border-slate-700"
                           }`}
                         >
-                          {isSelected && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                          {isSelected && <div className="w-2 h-2 rounded-full bg-white" />}
                         </div>
                       </button>
                     );
@@ -522,14 +522,14 @@ export function QuizEngine({ quiz, questions, topicSlug }: QuizEngineProps) {
             </div>
           ))}
 
-          <div className="flex items-center justify-between pt-4">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 pb-24 md:pb-6">
             <span className="text-xs text-slate-500 font-medium">
               {countAnswered()} of {questions.length} questions answered
             </span>
             <button
               onClick={handleSubmit}
               disabled={isSubmitting}
-              className="px-6 py-2.5 rounded-xl bg-blue-600 text-white font-semibold text-xs hover:bg-blue-700 shadow-md shadow-blue-500/20 disabled:opacity-50 transition-all cursor-pointer"
+              className="w-full sm:w-auto min-h-[44px] px-8 py-3 rounded-xl bg-blue-600 text-white font-bold text-sm hover:bg-blue-700 active:scale-95 shadow-md shadow-blue-500/20 disabled:opacity-50 transition-all cursor-pointer"
             >
               {isSubmitting ? "Evaluating & Grading..." : "Submit Quiz"}
             </button>

@@ -107,7 +107,7 @@ export function Navbar({ user }: NavbarProps) {
         <div className="flex items-center gap-1.5 flex-shrink-0">
 
           {/* Theme toggle */}
-          <div className="hidden md:flex">
+          <div className="flex items-center">
             <ThemeToggle />
           </div>
 

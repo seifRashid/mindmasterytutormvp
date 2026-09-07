@@ -280,7 +280,7 @@ export default async function StudentDashboardPage() {
       <div className="flex-1 flex max-w-7xl w-full mx-auto overflow-x-hidden">
         <Sidebar role="student" />
 
-        <main className="flex-1 min-w-0 p-4 md:p-8 space-y-8 overflow-y-auto">
+        <main className="flex-1 min-w-0 p-4 md:p-8 pb-24 md:pb-8 space-y-8 overflow-y-auto">
           {/* Welcome Banner */}
           <div className="p-6 md:p-8 bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 rounded-3xl text-white shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
             <div className="space-y-2 max-w-xl">

@@ -392,19 +392,23 @@ export function LessonViewer({
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
-            className={`flex-1 relative py-2.5 rounded-xl text-sm font-semibold transition-all ${
+            className={`flex-1 relative min-h-[44px] py-2 px-1 rounded-xl text-sm font-semibold transition-all select-none touch-manipulation active:scale-95 cursor-pointer ${
               activeTab === tab.key
                 ? "bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-sm"
                 : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
             }`}
           >
             <span className="hidden sm:inline">{tab.label}</span>
-            <span className="sm:hidden">{tab.label.split(" ")[0]}</span>
+            <span className="sm:hidden text-xs font-bold">
+              {tab.label.replace("📖 ", "").replace("🎬 ", "").replace("📎 ", "").replace("✏️ ", "")}
+            </span>
             {/* Dot indicator when tab has content */}
             {tab.hasContent && (
-              <span className={`absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full ${
-                activeTab === tab.key ? "bg-blue-500" : "bg-slate-400 dark:bg-slate-600"
-              }`} />
+              <span
+                className={`absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full ${
+                  activeTab === tab.key ? "bg-blue-500" : "bg-slate-400 dark:bg-slate-600"
+                }`}
+              />
             )}
           </button>
         ))}
@@ -562,11 +566,11 @@ export function LessonViewer({
       )}
 
       {/* ── Navigation: Prev / Next lesson ──────────────────────────── */}
-      <div className="flex items-center justify-between gap-3 pt-2 border-t border-slate-200 dark:border-slate-800">
+      <div className="flex items-center justify-between gap-3 pt-2 pb-24 md:pb-4 border-t border-slate-200 dark:border-slate-800">
         {prevLessonId ? (
           <Link
             href={`/dashboard/lessons/${prevLessonId}`}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all"
+            className="min-h-[44px] flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 active:scale-95 transition-all touch-manipulation select-none"
           >
             <ChevronLeft className="w-4 h-4" />
             <span className="hidden sm:inline">Previous Lesson</span>
@@ -579,7 +583,7 @@ export function LessonViewer({
         {nextLessonId ? (
           <Link
             href={`/dashboard/lessons/${nextLessonId}`}
-            className="flex items-center gap-2 px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold transition-all"
+            className="min-h-[44px] flex items-center gap-2 px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold active:scale-95 transition-all touch-manipulation select-none shadow-md shadow-blue-500/20"
           >
             <span className="hidden sm:inline">Next Lesson</span>
             <span className="sm:hidden">Next</span>
@@ -588,7 +592,7 @@ export function LessonViewer({
         ) : topicQuizId ? (
           <Link
             href={`/dashboard/quizzes/${topicQuizId}`}
-            className="flex items-center gap-2 px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold transition-all"
+            className="min-h-[44px] flex items-center gap-2 px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold active:scale-95 transition-all touch-manipulation select-none shadow-md shadow-emerald-500/20"
           >
             Topic Quiz
             <HelpCircle className="w-4 h-4" />

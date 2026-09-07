@@ -90,7 +90,7 @@ export function PwaController() {
     <>
       {/* Offline Status Pill */}
       {isOffline && (
-        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 animate-bounce">
+        <div className="fixed bottom-20 md:bottom-4 left-1/2 -translate-x-1/2 z-50 animate-bounce">
           <div className="bg-amber-600 text-white px-4 py-2 rounded-full shadow-2xl flex items-center gap-2 text-xs font-semibold border border-amber-400/50 backdrop-blur-md">
             <WifiOff className="w-4 h-4 shrink-0" />
             <span>You are currently working offline. Cached lessons are available.</span>
@@ -100,7 +100,7 @@ export function PwaController() {
 
       {/* PWA Install Banner */}
       {showInstallPrompt && !isDismissed && (
-        <div className="fixed bottom-4 right-4 z-50 max-w-sm w-[calc(100vw-2rem)] animate-in fade-in slide-in-from-bottom-5 duration-300">
+        <div className="fixed bottom-20 md:bottom-4 right-4 z-50 max-w-sm w-[calc(100vw-2rem)] animate-in fade-in slide-in-from-bottom-5 duration-300">
           <div className="p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl space-y-3 relative overflow-hidden">
             {/* Ambient accent bar */}
             <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-400" />
