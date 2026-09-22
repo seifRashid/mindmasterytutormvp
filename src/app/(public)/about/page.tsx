@@ -12,7 +12,7 @@ export default async function AboutPage() {
 
       <main className="max-w-4xl mx-auto px-4 py-16 space-y-12">
         <div className="text-center space-y-3">
-          <span className="text-xs font-bold text-cyan-400 uppercase tracking-wider">
+          <span className="text-xs font-bold text-teal-400 uppercase tracking-wider">
             About Our Portal
           </span>
           <h1 className="text-3xl md:text-5xl font-extrabold text-white">
@@ -25,7 +25,7 @@ export default async function AboutPage() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="p-6 bg-slate-900 rounded-3xl border border-slate-800 space-y-3">
-            <GraduationCap className="w-8 h-8 text-cyan-400" />
+            <GraduationCap className="w-8 h-8 text-teal-400" />
             <h3 className="text-lg font-bold text-white">Progressive Topic Unlocks</h3>
             <p className="text-xs text-slate-400 leading-relaxed">
               Our curriculum roadmaps break down complex subjects into bite-sized topics and video instructions, ensuring foundational concepts are learned first.
@@ -33,7 +33,7 @@ export default async function AboutPage() {
           </div>
 
           <div className="p-6 bg-slate-900 rounded-3xl border border-slate-800 space-y-3">
-            <Award className="w-8 h-8 text-indigo-400" />
+            <Award className="w-8 h-8 text-emerald-400" />
             <h3 className="text-lg font-bold text-white">Retry & Step-by-Step Explanations</h3>
             <p className="text-xs text-slate-400 leading-relaxed">
               Quizzes are designed for learning, not just testing. If a student attempts a quiz 3 times, detailed step-by-step explanations are automatically revealed.

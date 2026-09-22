@@ -1,37 +1,88 @@
 import * as dotenv from "dotenv";
 import { neon } from "@neondatabase/serverless";
 import { drizzle } from "drizzle-orm/neon-http";
+import { ne, eq } from "drizzle-orm";
+
 import * as schema from "./schema";
 import { hashPassword } from "../lib/crypto";
-import { ne, eq } from "drizzle-orm";
 import { INITIAL_CLASSES } from "../lib/mock-data";
 import { toUuid } from "../lib/id-mapper";
 
 dotenv.config({ path: ".env" });
 
-const connectionString = process.env.DATABASE_URL || "";
+const connectionString = process.env.DATABASE_URL;
+const adminPassword = process.env.ADMIN_PASSWORD;
+const resetConfirmation = process.env.ALLOW_PROD_RESET;
+
 if (!connectionString) {
-  console.error("DATABASE_URL is not set!");
+  console.error("DATABASE_URL is not configured.");
+  process.exit(1);
+}
+
+if (!adminPassword) {
+  console.error("ADMIN_PASSWORD is not configured.");
+  process.exit(1);
+}
+
+if (adminPassword.length < 12) {
+  console.error("ADMIN_PASSWORD must contain at least 12 characters.");
+  process.exit(1);
+}
+
+if (!/[A-Z]/.test(adminPassword)) {
+  console.error("ADMIN_PASSWORD must contain at least one uppercase letter.");
+  process.exit(1);
+}
+
+if (!/[a-z]/.test(adminPassword)) {
+  console.error("ADMIN_PASSWORD must contain at least one lowercase letter.");
+  process.exit(1);
+}
+
+if (!/[0-9]/.test(adminPassword)) {
+  console.error("ADMIN_PASSWORD must contain at least one number.");
+  process.exit(1);
+}
+
+if (!/[^A-Za-z0-9]/.test(adminPassword)) {
+  console.error("ADMIN_PASSWORD must contain at least one special character.");
+  process.exit(1);
+}
+
+const validatedAdminPassword = adminPassword;
+
+/*
+ * This script performs destructive operations on the database.
+ * An explicit confirmation is required before it can run.
+ */
+if (resetConfirmation !== "I_UNDERSTAND_THIS_WILL_DELETE_DATA") {
+  console.error("Production database reset blocked.");
+  console.error(
+    "Set ALLOW_PROD_RESET to the required confirmation value if this operation is intentional."
+  );
   process.exit(1);
 }
 
 const sql = neon(connectionString);
-const db = drizzle(sql, { schema });
+
+const db = drizzle(sql, {
+  schema,
+});
 
 async function main() {
-  console.log("🧹 Cleaning production database...");
-  console.log("   Keeping: admin users");
-  console.log("   Removing: all test data, content, non-admin users\n");
+  console.log("Starting production database cleanup...");
+  console.log("Preserving admin users.");
+  console.log("Removing test data and non-admin users.");
 
   try {
-    // 1. Remove all user-generated progress & attempt records
+    // Delete user progress and attempt records.
     console.log("Deleting quiz attempts...");
     await db.delete(schema.quizAttempts);
 
     console.log("Deleting lesson progress...");
     await db.delete(schema.lessonProgress);
 
-    // 2. Remove all content (dependency order: deepest children first)
+    // Delete quiz content in dependency order.
     console.log("Deleting answers...");
     await db.delete(schema.answers);
 
@@ -41,12 +92,14 @@ async function main() {
     console.log("Deleting quizzes...");
     await db.delete(schema.quizzes);
 
+    // Delete lesson content.
     console.log("Deleting lesson attachments...");
     await db.delete(schema.lessonAttachments);
 
     console.log("Deleting lessons...");
     await db.delete(schema.lessons);
 
+    // Delete course structure.
     console.log("Deleting topics...");
     await db.delete(schema.topics);
 
@@ -56,7 +109,9 @@ async function main() {
     console.log("Deleting classes...");
     await db.delete(schema.classes);
 
+    // Restore system reference classes.
     console.log("Re-seeding system reference classes...");
+
     for (const c of INITIAL_CLASSES) {
       await db.insert(schema.classes).values({
         id: toUuid(c.id),
@@ -65,31 +120,52 @@ async function main() {
         createdAt: new Date(),
       });
     }
-    console.log(`   ✓ Re-seeded ${INITIAL_CLASSES.length} reference classes.`);
 
-    // 3. Remove all non-admin users (test students and teachers)
-    console.log("Deleting non-admin users (test students & teachers)...");
-    await db.delete(schema.users).where(ne(schema.users.role, "admin"));
+    console.log(
+      `Re-seeded ${INITIAL_CLASSES.length} reference classes.`
+    );
 
-    // 4. Update the admin user's password to the production-safe value
-    console.log("Updating admin user password...");
-    const hashedPassword = await hashPassword("Admin@123");
+    // Remove all non-admin users.
+    console.log("Deleting non-admin users...");
 
-    const updatedRows = await db
+    await db
+      .delete(schema.users)
+      .where(ne(schema.users.role, "admin"));
+
+    // Hash and update the admin password.
+    console.log("Updating admin password...");
+
+    const hashedPassword = await hashPassword(validatedAdminPassword);
+
+    await db
       .update(schema.users)
-      .set({ password: hashedPassword, updatedAt: new Date() })
+      .set({
+        passwordHash: hashedPassword,
+        updatedAt: new Date(),
+      })
       .where(eq(schema.users.role, "admin"));
 
-    console.log(`   ✓ Updated admin password.`);
-
-    console.log("\n✅ Production database cleaned successfully!");
-    console.log("   Schema, enums, and constraints: intact");
-    console.log("   Admin account:                  admin@mindmastery.edu");
-    console.log("   Admin password:                 Admin@123  ← change after first login");
+    console.log("Admin password updated.");
+    console.log("Production database cleanup completed.");
   } catch (error) {
-    console.error("❌ Error during production cleanup:", error);
+    console.error("Production database cleanup failed.");
+
+    if (process.env.NODE_ENV === "development") {
+      console.error(error);
+    }
+
     process.exit(1);
   }
 }
 
-main();
+main()
+  .then(() => {
+    process.exit(0);
+  })
+  .catch((error) => {
+    if (process.env.NODE_ENV === "development") {
+      console.error(error);
+    }
+
+    process.exit(1);
+  });

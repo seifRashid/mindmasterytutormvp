@@ -119,10 +119,14 @@ export async function upsertLessonAction(
     // 1. Check if lesson exists
     const existing = await db.select().from(dbLessons).where(eq(dbLessons.id, lessonUuid));
 
-    // Determine the lessonQuizId
+    // Quizzes are linked to lessons through quizzes.lessonId.
     let lessonQuizId: string | null = null;
-    if (existing.length > 0) {
-      lessonQuizId = existing[0].lessonQuizId;
+    const existingQuiz = await db
+      .select({ id: quizzes.id })
+      .from(quizzes)
+      .where(eq(quizzes.lessonId, lessonUuid));
+    if (existingQuiz.length > 0) {
+      lessonQuizId = existingQuiz[0].id;
     }
 
     // 2. Sync Quiz if enabled
@@ -132,6 +136,7 @@ export async function upsertLessonAction(
         const [newQuiz] = await db
           .insert(quizzes)
           .values({
+            lessonId: lessonUuid,
             title: data.quiz.title,
             passingScore: data.quiz.passingScore,
             timeLimitMinutes: data.quiz.timeLimitMinutes,
@@ -200,7 +205,6 @@ export async function upsertLessonAction(
           videoUrl: data.videoUrl || null,
           duration: data.duration,
           status: data.status,
-          lessonQuizId: lessonQuizId,
         })
         .where(eq(dbLessons.id, lessonUuid));
     } else {
@@ -213,7 +217,6 @@ export async function upsertLessonAction(
         videoUrl: data.videoUrl || null,
         duration: data.duration,
         status: data.status,
-        lessonQuizId: lessonQuizId,
       });
     }
 

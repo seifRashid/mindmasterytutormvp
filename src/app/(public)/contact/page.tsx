@@ -11,7 +11,7 @@ export default async function ContactPage() {
 
       <main className="max-w-4xl mx-auto px-4 py-16 space-y-12">
         <div className="text-center space-y-3">
-          <span className="text-xs font-bold text-cyan-400 uppercase tracking-wider">
+          <span className="text-xs font-bold text-rose-400 uppercase tracking-wider">
             Contact Us
           </span>
           <h1 className="text-3xl md:text-5xl font-extrabold text-white">
@@ -29,7 +29,7 @@ export default async function ContactPage() {
               <input
                 type="text"
                 placeholder="David Kim"
-                className="w-full px-4 py-2.5 text-xs rounded-xl bg-slate-950 border border-slate-800 text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                className="w-full px-4 py-2.5 text-xs rounded-xl bg-slate-950 border border-slate-800 text-white focus:outline-none focus:ring-2 focus:ring-rose-500"
               />
             </div>
             <div>
@@ -37,7 +37,7 @@ export default async function ContactPage() {
               <input
                 type="email"
                 placeholder="david@example.com"
-                className="w-full px-4 py-2.5 text-xs rounded-xl bg-slate-950 border border-slate-800 text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                className="w-full px-4 py-2.5 text-xs rounded-xl bg-slate-950 border border-slate-800 text-white focus:outline-none focus:ring-2 focus:ring-rose-500"
               />
             </div>
             <div>
@@ -45,12 +45,12 @@ export default async function ContactPage() {
               <textarea
                 rows={4}
                 placeholder="How can we assist you today?"
-                className="w-full px-4 py-2.5 text-xs rounded-xl bg-slate-950 border border-slate-800 text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                className="w-full px-4 py-2.5 text-xs rounded-xl bg-slate-950 border border-slate-800 text-white focus:outline-none focus:ring-2 focus:ring-rose-500"
               />
             </div>
             <button
               type="button"
-              className="w-full py-3 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs shadow-lg shadow-cyan-600/30 flex items-center justify-center gap-2"
+              className="w-full py-3 rounded-xl bg-rose-500 hover:bg-rose-400 text-white font-bold text-xs shadow-lg shadow-rose-600/30 flex items-center justify-center gap-2"
             >
               <Send className="w-4 h-4" /> Send Message
             </button>

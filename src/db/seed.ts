@@ -70,7 +70,7 @@ async function main() {
         id: toUuid(u.id),
         name: u.name,
         email: u.email.toLowerCase(),
-        password: hashedPassword,
+        passwordHash: hashedPassword,
         role: u.role,
         status: u.status || "approved",
         phone: u.phone || null,
@@ -131,7 +131,6 @@ async function main() {
         videoUrl: les.videoUrl || null,
         duration: les.duration || 0,
         orderNumber: les.orderNumber || 1,
-        lessonQuizId: les.lessonQuizId ? toUuid(les.lessonQuizId) : null,
         createdAt: les.createdAt ? new Date(les.createdAt) : new Date(),
       });
 

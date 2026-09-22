@@ -7,6 +7,7 @@ import {
   topics as dbTopics,
   subjects as dbSubjects,
   classes as dbClasses,
+  quizzes as dbQuizzes,
 } from "@/db/schema";
 import { eq, isNull, isNotNull, and } from "drizzle-orm";
 import { toUuid, fromUuid } from "@/lib/id-mapper";
@@ -29,6 +30,10 @@ export default async function TeacherLessonsPage({
 
   // 2. Fetch data from DB
   const allLessons = await db.select().from(dbLessons);
+  const allQuizzes = await db.select({ id: dbQuizzes.id, lessonId: dbQuizzes.lessonId }).from(dbQuizzes);
+  const quizIdByLessonId = new Map(
+    allQuizzes.filter((quiz) => quiz.lessonId).map((quiz) => [quiz.lessonId, quiz.id])
+  );
   const activeLessons = allLessons.filter((l) => !l.deletedAt && l.status === "published");
   const draftLessons = allLessons.filter((l) => !l.deletedAt && l.status === "draft");
   const recycleLessons = allLessons.filter((l) => !!l.deletedAt);
@@ -38,6 +43,10 @@ export default async function TeacherLessonsPage({
     : view === "draft"
     ? draftLessons
     : activeLessons;
+  const lessonsWithQuizIds = displayedLessons.map((lesson) => ({
+    ...lesson,
+    quizId: quizIdByLessonId.get(lesson.id),
+  }));
 
   const topicsList = await db.select().from(dbTopics);
   const subjectsList = await db.select().from(dbSubjects);
@@ -113,7 +122,7 @@ export default async function TeacherLessonsPage({
 
           {/* Lessons List Manager */}
           <LessonsListManager
-            lessons={displayedLessons}
+            lessons={lessonsWithQuizIds}
             topics={topicsList}
             subjects={subjectsList}
             classes={classesList}

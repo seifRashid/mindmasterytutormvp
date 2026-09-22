@@ -9,7 +9,6 @@ import {
   LayoutDashboard,
   Sparkles,
   Bell,
-  User as UserIcon,
   Menu,
   X,
 } from "lucide-react";
@@ -42,11 +41,6 @@ export function Navbar({ user }: NavbarProps) {
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
-  // Close mobile menu on route change
-  useEffect(() => {
-    setMobileMenuOpen(false);
-  }, [pathname]);
-
   const getDashboardHref = () => {
     if (!user) return "/login";
     if (user.role === "admin") return "/admin";
@@ -64,24 +58,24 @@ export function Navbar({ user }: NavbarProps) {
   ];
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-950/90 backdrop-blur-md">
+    <header className="sticky top-0 z-50 w-full border-b border-white/70 bg-white/45 backdrop-blur-2xl shadow-[0_10px_35px_rgba(89,113,155,0.12)]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between gap-4">
 
         {/* ── LEFT: Brand pill ─────────────────────────────────────── */}
         <Link
           href="/"
-          className="flex-shrink-0 flex items-center gap-2 px-3 py-1.5 rounded-full border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 hover:border-blue-400 dark:hover:border-blue-600 transition-colors group"
+          className="flex-shrink-0 flex items-center gap-2 px-3 py-1.5 rounded-full border border-white/80 bg-white/55 backdrop-blur-xl hover:border-blue-400 transition-colors group"
         >
           <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-blue-600 to-cyan-400 flex items-center justify-center flex-shrink-0">
             <GraduationCap className="w-3.5 h-3.5 text-white" />
           </div>
-          <span className="text-sm font-bold text-slate-800 dark:text-white tracking-tight whitespace-nowrap">
+          <span className="text-sm font-bold text-slate-800 tracking-tight whitespace-nowrap">
             Mind Mastery
           </span>
         </Link>
 
         {/* ── CENTER: Pill nav links (desktop) ─────────────────────── */}
-        <nav className="hidden md:flex items-center gap-1 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-full px-1 py-1">
+        <nav className="hidden md:flex items-center gap-1 bg-white/45 backdrop-blur-xl border border-white/75 rounded-full px-1 py-1 shadow-sm">
           {navLinks.map((link) => {
             const isActive = pathname === link.href ||
               (link.href !== "/" && pathname.startsWith(link.href));
@@ -89,6 +83,7 @@ export function Navbar({ user }: NavbarProps) {
               <Link
                 key={link.href}
                 href={link.href}
+                onClick={() => setMobileMenuOpen(false)}
                 className={`
                   relative px-4 py-1.5 rounded-full text-sm font-medium transition-all duration-200 whitespace-nowrap
                   ${isActive

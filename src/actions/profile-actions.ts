@@ -106,7 +106,7 @@ export async function updateProfilePasswordAction(data: {
     const dbUser = dbUserList[0];
 
     // 2. Verify current password
-    const isMatch = await comparePassword(data.current, dbUser.password);
+    const isMatch = await comparePassword(data.current, dbUser.passwordHash);
     if (!isMatch) {
       return { error: "The current password you entered is incorrect." };
     }
@@ -116,7 +116,7 @@ export async function updateProfilePasswordAction(data: {
     await db
       .update(users)
       .set({
-        password: hashed,
+        passwordHash: hashed,
         updatedAt: new Date(),
       })
       .where(eq(users.id, userUuid));

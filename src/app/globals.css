@@ -4,8 +4,12 @@
 @variant dark (&:where(.dark, .dark *));
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #fff7ed;
+  --foreground: #2b160c;
+  --glass-surface: rgba(255, 247, 240, 0.72);
+  --glass-strong: rgba(255, 250, 247, 0.86);
+  --glass-border: rgba(255, 220, 200, 0.82);
+  --glass-shadow: 0 18px 50px rgba(154, 52, 18, 0.12);
 }
 
 @theme inline {
@@ -17,24 +21,228 @@
 
 /* CSS variables switch when next-themes adds class="dark" to <html> */
 :root.dark {
-  --background: #0a0a0a;
-  --foreground: #ededed;
+  --background: #fff7ed;
+  --foreground: #2b160c;
 }
 
 /* Keep system preference as a fallback for users who haven't toggled */
 @media (prefers-color-scheme: dark) {
   :root:not(.light) {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #fff7ed;
+    --foreground: #2b160c;
   }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), sans-serif;
   /* Prevent text selection flash on mobile tap */
   -webkit-tap-highlight-color: transparent;
+}
+
+/* Light glassmorphism foundation shared by legacy page surfaces. */
+.glass-theme {
+  background: #fff7ed;
+  color: #2b160c;
+}
+
+.glass-theme .bg-slate-950,
+.glass-theme .bg-slate-900,
+.glass-theme .bg-slate-100,
+.glass-theme .bg-white,
+.glass-theme .dark\:bg-slate-950,
+.glass-theme .dark\:bg-slate-900,
+.glass-theme .dark\:bg-slate-100,
+.glass-theme .dark\:bg-white {
+  background-color: var(--glass-surface) !important;
+  border-color: var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  -webkit-backdrop-filter: blur(22px);
+  backdrop-filter: blur(22px);
+}
+
+.glass-theme .text-slate-100,
+.glass-theme .text-slate-200,
+.glass-theme .text-white:not(.bg-blue-600):not(.bg-indigo-600):not(.bg-cyan-600) {
+  color: #172033 !important;
+}
+
+.glass-theme input,
+.glass-theme select,
+.glass-theme textarea {
+  background-color: rgba(255, 255, 255, 0.58) !important;
+  color: #172033 !important;
+  border-color: rgba(148, 163, 184, 0.35) !important;
+}
+
+.glass-theme input::placeholder,
+.glass-theme textarea::placeholder {
+  color: #64748b;
+}
+
+.glass-surface {
+  background: var(--glass-surface);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  -webkit-backdrop-filter: blur(22px);
+  backdrop-filter: blur(22px);
+}
+
+/* Shared orange palette for the existing utility classes across every route. */
+.orange-theme [class*="bg-blue-"],
+.orange-theme [class*="bg-cyan-"],
+.orange-theme [class*="bg-indigo-"],
+.orange-theme [class*="bg-violet-"],
+.orange-theme [class*="bg-sky-"] {
+  background-color: color-mix(in srgb, #ea580c 16%, transparent) !important;
+}
+
+.orange-theme [class*="bg-blue-500"],
+.orange-theme [class*="bg-blue-600"],
+.orange-theme [class*="bg-blue-700"],
+.orange-theme [class*="bg-cyan-500"],
+.orange-theme [class*="bg-cyan-600"],
+.orange-theme [class*="bg-cyan-700"],
+.orange-theme [class*="bg-indigo-500"],
+.orange-theme [class*="bg-indigo-600"],
+.orange-theme [class*="bg-indigo-700"],
+.orange-theme [class*="bg-violet-500"],
+.orange-theme [class*="bg-violet-600"],
+.orange-theme [class*="bg-violet-700"],
+.orange-theme [class*="bg-sky-500"],
+.orange-theme [class*="bg-sky-600"],
+.orange-theme [class*="bg-sky-700"] {
+  background-color: #ea580c !important;
+}
+
+.orange-theme [class*="bg-blue-50"],
+.orange-theme [class*="bg-blue-100"],
+.orange-theme [class*="bg-blue-200"],
+.orange-theme [class*="bg-cyan-50"],
+.orange-theme [class*="bg-cyan-100"],
+.orange-theme [class*="bg-cyan-200"],
+.orange-theme [class*="bg-indigo-50"],
+.orange-theme [class*="bg-indigo-100"],
+.orange-theme [class*="bg-indigo-200"],
+.orange-theme [class*="bg-violet-50"],
+.orange-theme [class*="bg-violet-100"],
+.orange-theme [class*="bg-violet-200"],
+.orange-theme [class*="bg-sky-50"],
+.orange-theme [class*="bg-sky-100"],
+.orange-theme [class*="bg-sky-200"] {
+  background-color: #ffedd5 !important;
+}
+
+.orange-theme [class*="bg-blue-900"],
+.orange-theme [class*="bg-blue-950"],
+.orange-theme [class*="bg-cyan-900"],
+.orange-theme [class*="bg-cyan-950"],
+.orange-theme [class*="bg-indigo-900"],
+.orange-theme [class*="bg-indigo-950"],
+.orange-theme [class*="bg-violet-900"],
+.orange-theme [class*="bg-violet-950"],
+.orange-theme [class*="bg-sky-900"],
+.orange-theme [class*="bg-sky-950"] {
+  background-color: #7c2d12 !important;
+}
+
+.orange-theme [class*="bg-blue-500/"],
+.orange-theme [class*="bg-blue-600/"],
+.orange-theme [class*="bg-blue-700/"],
+.orange-theme [class*="bg-cyan-500/"],
+.orange-theme [class*="bg-cyan-600/"],
+.orange-theme [class*="bg-cyan-700/"],
+.orange-theme [class*="bg-indigo-500/"],
+.orange-theme [class*="bg-indigo-600/"],
+.orange-theme [class*="bg-indigo-700/"],
+.orange-theme [class*="bg-violet-500/"],
+.orange-theme [class*="bg-violet-600/"],
+.orange-theme [class*="bg-violet-700/"],
+.orange-theme [class*="bg-sky-500/"],
+.orange-theme [class*="bg-sky-600/"],
+.orange-theme [class*="bg-sky-700/"] {
+  background-color: color-mix(in srgb, #ea580c 20%, transparent) !important;
+}
+
+.orange-theme [class*="text-blue-"],
+.orange-theme [class*="text-cyan-"],
+.orange-theme [class*="text-indigo-"],
+.orange-theme [class*="text-violet-"],
+.orange-theme [class*="text-sky-"] {
+  color: #c2410c !important;
+}
+
+.orange-theme [class*="border-blue-"],
+.orange-theme [class*="border-cyan-"],
+.orange-theme [class*="border-indigo-"],
+.orange-theme [class*="border-violet-"],
+.orange-theme [class*="border-sky-"] {
+  border-color: #fdba74 !important;
+}
+
+.orange-theme [class*="ring-blue-"],
+.orange-theme [class*="ring-cyan-"],
+.orange-theme [class*="ring-indigo-"],
+.orange-theme [class*="ring-violet-"],
+.orange-theme [class*="ring-sky-"] {
+  --tw-ring-color: #f97316 !important;
+}
+
+.orange-theme [class*="from-blue-"],
+.orange-theme [class*="from-cyan-"],
+.orange-theme [class*="from-indigo-"],
+.orange-theme [class*="from-violet-"],
+.orange-theme [class*="from-sky-"] {
+  --tw-gradient-from: #ea580c var(--tw-gradient-from-position) !important;
+  --tw-gradient-to: rgb(234 88 12 / 0) var(--tw-gradient-to-position) !important;
+}
+
+.orange-theme [class*="via-blue-"],
+.orange-theme [class*="via-cyan-"],
+.orange-theme [class*="via-indigo-"],
+.orange-theme [class*="via-violet-"],
+.orange-theme [class*="via-sky-"] {
+  --tw-gradient-via: #f59e0b var(--tw-gradient-via-position) !important;
+}
+
+.orange-theme [class*="to-blue-"],
+.orange-theme [class*="to-cyan-"],
+.orange-theme [class*="to-indigo-"],
+.orange-theme [class*="to-violet-"],
+.orange-theme [class*="to-sky-"] {
+  --tw-gradient-to: #fbbf24 var(--tw-gradient-to-position) !important;
+}
+
+.orange-theme [class*="hover:bg-blue-"]:hover,
+.orange-theme [class*="hover:bg-cyan-"]:hover,
+.orange-theme [class*="hover:bg-indigo-"]:hover,
+.orange-theme [class*="hover:bg-violet-"]:hover,
+.orange-theme [class*="hover:bg-sky-"]:hover {
+  background-color: #c2410c !important;
+}
+
+.orange-theme [class*="hover:text-blue-"]:hover,
+.orange-theme [class*="hover:text-cyan-"]:hover,
+.orange-theme [class*="hover:text-indigo-"]:hover,
+.orange-theme [class*="hover:text-violet-"]:hover,
+.orange-theme [class*="hover:text-sky-"]:hover {
+  color: #9a3412 !important;
+}
+
+@keyframes float {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(24px, 18px, 0) scale(1.06); }
+}
+
+@keyframes floatReverse {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(-28px, -16px, 0) scale(1.08); }
+}
+
+@keyframes pulseGlow {
+  0%, 100% { opacity: 0.35; transform: scale(0.96); }
+  50% { opacity: 0.7; transform: scale(1.06); }
 }
 
 /* Remove 300ms tap delay on all interactive elements */

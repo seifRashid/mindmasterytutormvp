@@ -285,7 +285,7 @@ export function LessonBuilder({ lesson, quiz, questions: initialQuestions, topic
   const [newAttType, setNewAttType] = useState<AttachmentType>("pdf");
 
   // Quiz tab state
-  const [hasQuiz, setHasQuiz] = useState(!!lesson.lessonQuizId);
+  const [hasQuiz, setHasQuiz] = useState(!!quiz);
   const [quizTitle, setQuizTitle] = useState(quiz?.title ?? `Quick Check: ${lesson.title}`);
   const [passingScore, setPassingScore] = useState(quiz?.passingScore ?? 60);
   const [timeLimit, setTimeLimit] = useState(quiz?.timeLimitMinutes ?? 5);

@@ -87,9 +87,8 @@ export default async function LessonPage({
   // Fetch lesson-level inline quiz
   let lessonQuiz = null;
   let lessonQuizQuestions: any[] = [];
-  if (lesson.lessonQuizId) {
-    const quizResult = await db.select().from(dbQuizzes).where(eq(dbQuizzes.id, lesson.lessonQuizId));
-    if (quizResult.length > 0) {
+  const quizResult = await db.select().from(dbQuizzes).where(eq(dbQuizzes.lessonId, lessonUuid));
+  if (quizResult.length > 0) {
       lessonQuiz = quizResult[0];
       const questionsList = await db
         .select()
@@ -109,7 +108,6 @@ export default async function LessonPage({
           answers: answersList.filter((a) => a.questionId === q.id),
         }));
       }
-    }
   }
 
   // Topic-level quiz (for navigation link at the end)

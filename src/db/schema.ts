@@ -8,8 +8,10 @@ import {
   timestamp,
   pgEnum,
   index,
+  uniqueIndex,
+  check,
 } from "drizzle-orm/pg-core";
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 
 // Enums
 export const roleEnum = pgEnum("user_role", ["student", "teacher", "admin"]);
@@ -27,6 +29,13 @@ export const attachmentTypeEnum = pgEnum("attachment_type", [
   "presentation",
   "other",
 ]);
+// NEW: lesson status is now a real enum instead of free-text varchar
+export const lessonStatusEnum = pgEnum("lesson_status", ["draft", "published"]);
+// NEW: for password reset / email verification flows
+export const authTokenTypeEnum = pgEnum("auth_token_type", [
+  "email_verification",
+  "password_reset",
+]);
 
 // 1. Users Table
 export const users = pgTable(
@@ -35,7 +44,9 @@ export const users = pgTable(
     id: uuid("id").defaultRandom().primaryKey(),
     name: varchar("name", { length: 255 }).notNull(),
     email: varchar("email", { length: 255 }).notNull().unique(),
-    password: text("password").notNull(),
+    // RENAMED from "password" -> "passwordHash" so it's never mistaken for
+    // a place to put plaintext. App layer must hash with bcrypt/argon2 before insert.
+    passwordHash: text("password_hash").notNull(),
     role: roleEnum("role").default("student").notNull(),
     status: userStatusEnum("status").default("pending").notNull(),
     phone: varchar("phone", { length: 50 }),
@@ -48,6 +59,18 @@ export const users = pgTable(
     notes: text("notes"),
     rejectionReason: text("rejection_reason"),
     image: text("image"),
+
+    // NEW: account-security fields
+    emailVerified: boolean("email_verified").default(false).notNull(),
+    failedLoginAttempts: integer("failed_login_attempts").default(0).notNull(),
+    lockedUntil: timestamp("locked_until"),
+    lastLoginAt: timestamp("last_login_at"),
+    passwordChangedAt: timestamp("password_changed_at"),
+
+    // NEW: admin accountability for approve/reject workflow
+    approvedBy: uuid("approved_by"),
+    approvedAt: timestamp("approved_at"),
+
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
@@ -56,6 +79,33 @@ export const users = pgTable(
     roleIdx: index("users_role_idx").on(table.role),
     statusIdx: index("users_status_idx").on(table.status),
     classIdIdx: index("users_class_id_idx").on(table.classId),
+    // NEW: defense-in-depth format/range checks at the DB layer
+    ageCheck: check("users_age_check", sql`${table.age} IS NULL OR (${table.age} BETWEEN 3 AND 120)`),
+    emailFormatCheck: check(
+      "users_email_format_check",
+      sql`${table.email} ~ '^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$'`
+    ),
+  })
+);
+
+// NEW: Auth tokens table — for email verification & password reset,
+// so raw tokens are never embedded in URLs without expiry/one-time-use tracking.
+export const authTokens = pgTable(
+  "auth_tokens",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    tokenHash: text("token_hash").notNull(), // store hash of token, not the raw token
+    type: authTokenTypeEnum("type").notNull(),
+    expiresAt: timestamp("expires_at").notNull(),
+    usedAt: timestamp("used_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    userIdx: index("auth_tokens_user_idx").on(table.userId),
+    tokenHashIdx: uniqueIndex("auth_tokens_token_hash_idx").on(table.tokenHash),
   })
 );
 
@@ -89,7 +139,8 @@ export const subjects = pgTable(
   },
   (table) => ({
     classIdx: index("subjects_class_idx").on(table.classId),
-    slugIdx: index("subjects_slug_idx").on(table.slug),
+    // FIXED: slug uniqueness scoped per class, not global
+    classSlugUnique: uniqueIndex("subjects_class_slug_unique").on(table.classId, table.slug),
   })
 );
 
@@ -110,10 +161,12 @@ export const topics = pgTable(
   (table) => ({
     subjectIdx: index("topics_subject_idx").on(table.subjectId),
     orderIdx: index("topics_order_idx").on(table.orderNumber),
+    // FIXED: slug uniqueness scoped per subject
+    subjectSlugUnique: uniqueIndex("topics_subject_slug_unique").on(table.subjectId, table.slug),
   })
 );
 
-// 5. Lessons Table — enhanced with rich content and attachment support
+// 5. Lessons Table
 export const lessons = pgTable(
   "lessons",
   {
@@ -123,13 +176,16 @@ export const lessons = pgTable(
       .references(() => topics.id, { onDelete: "cascade" }),
     title: varchar("title", { length: 255 }).notNull(),
     description: text("description"),
-    richContent: text("rich_content"),          // Markdown lesson notes
-    videoUrl: text("video_url"),                // Optional — may be notes-only
+    richContent: text("rich_content"),
+    videoUrl: text("video_url"),
     duration: integer("duration").default(0).notNull(),
     orderNumber: integer("order_number").default(1).notNull(),
-    lessonQuizId: uuid("lesson_quiz_id"),       // FK set after quiz creation
-    deletedAt: timestamp("deleted_at"),         // Null if active, set if in recycle bin
-    status: varchar("status", { length: 50 }).default("published").notNull(), // "published" or "draft"
+    // REMOVED lessonQuizId: it was a dangling FK with no .references() and
+    // duplicated the relationship already modeled by quizzes.lessonId below.
+    // A lesson's quiz is now found via quizzes.lessonId (one lesson -> one quiz).
+    deletedAt: timestamp("deleted_at"),
+    // FIXED: real enum instead of unvalidated varchar
+    status: lessonStatusEnum("status").default("published").notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => ({
@@ -156,26 +212,34 @@ export const lessonAttachments = pgTable(
   })
 );
 
-// 7. Quizzes Table — can belong to a topic OR a lesson
+// 7. Quizzes Table
 export const quizzes = pgTable(
   "quizzes",
   {
     id: uuid("id").defaultRandom().primaryKey(),
     topicId: uuid("topic_id").references(() => topics.id, { onDelete: "cascade" }),
-    lessonId: uuid("lesson_id").references(() => lessons.id, { onDelete: "cascade" }),
+    // FIXED: lessonId now cascades to "restrict" so a quiz with existing
+    // student attempts can't be deleted along with its lesson by accident.
+    // Prefer soft-deleting quizzes/lessons over hard delete when history exists.
+    lessonId: uuid("lesson_id").references(() => lessons.id, { onDelete: "restrict" }),
     title: varchar("title", { length: 255 }).notNull(),
     passingScore: integer("passing_score").default(70).notNull(),
-    timeLimitMinutes: integer("time_limit_minutes").default(0).notNull(), // 0 = no limit
+    timeLimitMinutes: integer("time_limit_minutes").default(0).notNull(),
     showFeedback: boolean("show_feedback").default(true).notNull(),
+    deletedAt: timestamp("deleted_at"), // NEW: soft delete, preserves attempt history
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => ({
     topicIdx: index("quizzes_topic_idx").on(table.topicId),
     lessonIdx: index("quizzes_lesson_idx").on(table.lessonId),
+    passingScoreCheck: check(
+      "quizzes_passing_score_check",
+      sql`${table.passingScore} BETWEEN 0 AND 100`
+    ),
   })
 );
 
-// 8. Questions Table — supports MCQ, True/False, Short Answer
+// 8. Questions Table
 export const questions = pgTable(
   "questions",
   {
@@ -219,15 +283,18 @@ export const quizAttempts = pgTable(
     userId: uuid("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
+    // FIXED: restrict instead of cascade — deleting a quiz should not be
+    // able to silently erase every student's historical score for it.
     quizId: uuid("quiz_id")
       .notNull()
-      .references(() => quizzes.id, { onDelete: "cascade" }),
+      .references(() => quizzes.id, { onDelete: "restrict" }),
     score: integer("score").notNull(),
     failedAttempts: integer("failed_attempts").default(0).notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => ({
     userQuizIdx: index("quiz_attempts_user_quiz_idx").on(table.userId, table.quizId),
+    scoreCheck: check("quiz_attempts_score_check", sql`${table.score} BETWEEN 0 AND 100`),
   })
 );
 
@@ -239,9 +306,10 @@ export const lessonProgress = pgTable(
     userId: uuid("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
+    // FIXED: restrict instead of cascade — same reasoning as quizAttempts.quizId above.
     lessonId: uuid("lesson_id")
       .notNull()
-      .references(() => lessons.id, { onDelete: "cascade" }),
+      .references(() => lessons.id, { onDelete: "restrict" }),
     completed: boolean("completed").default(false).notNull(),
     notesCompleted: boolean("notes_completed").default(false).notNull(),
     videoCompleted: boolean("video_completed").default(false).notNull(),
@@ -250,7 +318,8 @@ export const lessonProgress = pgTable(
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
   (table) => ({
-    userLessonIdx: index("lesson_progress_user_lesson_idx").on(
+    // FIXED: unique, not just indexed — one progress row per (user, lesson)
+    userLessonUnique: uniqueIndex("lesson_progress_user_lesson_unique").on(
       table.userId,
       table.lessonId
     ),
@@ -263,6 +332,11 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   class: one(classes, { fields: [users.classId], references: [classes.id] }),
   quizAttempts: many(quizAttempts),
   lessonProgress: many(lessonProgress),
+  authTokens: many(authTokens),
+}));
+
+export const authTokensRelations = relations(authTokens, ({ one }) => ({
+  user: one(users, { fields: [authTokens.userId], references: [users.id] }),
 }));
 
 export const classesRelations = relations(classes, ({ many }) => ({

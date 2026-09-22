@@ -229,7 +229,7 @@ export function LessonsListManager({
                               <Video className="w-4 h-4 text-emerald-500" />
                             </span>
                           )}
-                          {les.lessonQuizId && (
+                          {les.quizId && (
                             <span title="Has inline quiz">
                               <HelpCircle className="w-4 h-4 text-blue-500" />
                             </span>
