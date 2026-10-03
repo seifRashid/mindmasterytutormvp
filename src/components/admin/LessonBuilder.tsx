@@ -25,8 +25,10 @@ import {
   BookOpen,
   Settings2,
   Loader2,
+  ExternalLink,
 } from "lucide-react";
 import type { Lesson, LessonAttachment, Quiz, Question, Answer, AttachmentType, QuestionType } from "@/lib/types";
+import { getMaterialViewUrl } from "@/lib/material-utils";
 
 import { RichTextEditor } from "@/components/editor/RichTextEditor";
 
@@ -795,6 +797,7 @@ export function LessonBuilder({ lesson, quiz, questions: initialQuestions, topic
               </p>
               {attachments.map((att) => {
                 const Icon = ATTACHMENT_TYPE_ICONS[att.type];
+                const viewUrl = getMaterialViewUrl(att.url, att.name);
                 return (
                   <div
                     key={att.id}
@@ -804,13 +807,37 @@ export function LessonBuilder({ lesson, quiz, questions: initialQuestions, topic
                       <Icon className="w-4 h-4" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">{att.name}</p>
-                      <p className="text-xs text-slate-400 font-mono truncate">{att.url}</p>
+                      <a
+                        href={viewUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm font-semibold text-slate-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors block truncate"
+                      >
+                        {att.name}
+                      </a>
+                      <a
+                        href={viewUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-slate-400 hover:text-blue-500 font-mono truncate block"
+                      >
+                        {att.url}
+                      </a>
                     </div>
                     <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 font-semibold uppercase">
                       {att.type}
                     </span>
+                    <a
+                      href={viewUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                      title="Open material"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                    </a>
                     <button
+                      type="button"
                       onClick={() => removeAttachment(att.id)}
                       className="p-1.5 rounded-lg text-rose-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40"
                     >

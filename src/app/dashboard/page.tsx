@@ -26,14 +26,8 @@ import {
   quizzes as dbQuizzes,
   questions as dbQuestions,
 } from "@/db/schema";
-import { eq, and, inArray, isNull } from "drizzle-orm";
+import { eq, and, inArray, isNull, or } from "drizzle-orm";
 import { toUuid } from "@/lib/id-mapper";
-import {
-  INITIAL_QUIZZES,
-  INITIAL_TOPICS,
-  INITIAL_SUBJECTS,
-  INITIAL_QUESTIONS,
-} from "@/lib/mock-data";
 
 // Helper function to calculate calendar streak
 async function getStreakDays(userId: string): Promise<number> {
@@ -202,73 +196,116 @@ export default async function StudentDashboardPage() {
     }
   }
 
-  // 3. Fetch Featured Quizzes for Student
+  // 3. Fetch Featured Quizzes for Student (Scoped to enrolled class)
   let featuredQuizzes: any[] = [];
   try {
-    const dbQuizList = await db.select().from(dbQuizzes);
-    const dbTopicList = await db.select().from(dbTopics);
-    const dbQuestionList = await db.select().from(dbQuestions);
-    const myAttempts = await db
-      .select()
-      .from(dbAttempts)
-      .where(eq(dbAttempts.userId, userUuid));
+    let activeQuizzes: any[] = [];
 
-    const topicMap = new Map<string, any>();
-    INITIAL_TOPICS.forEach((t) => topicMap.set(t.id, t));
-    dbTopicList.forEach((t) => topicMap.set(t.id, t));
+    if (studentSubjects.length > 0) {
+      const subjectIds = studentSubjects.map((s) => s.id);
+      const subjectMap = new Map<string, any>(studentSubjects.map((s) => [s.id, s]));
 
-    const subjectMap = new Map<string, any>();
-    INITIAL_SUBJECTS.forEach((s) => subjectMap.set(s.id, s));
-    studentSubjects.forEach((s) => subjectMap.set(s.id, s));
+      const topicsList = await db
+        .select()
+        .from(dbTopics)
+        .where(inArray(dbTopics.subjectId, subjectIds));
+      const topicMap = new Map<string, any>(topicsList.map((t) => [t.id, t]));
+      const topicIds = topicsList.map((t) => t.id);
 
-    const allQuizzesMap = new Map<string, any>();
-    INITIAL_QUIZZES.forEach((q) => allQuizzesMap.set(q.id, q));
-    dbQuizList.forEach((q) => allQuizzesMap.set(q.id, q));
+      let lessonIds: string[] = [];
+      if (topicIds.length > 0) {
+        const lessons = await db
+          .select({ id: dbLessons.id })
+          .from(dbLessons)
+          .where(
+            and(
+              inArray(dbLessons.topicId, topicIds),
+              isNull(dbLessons.deletedAt),
+              eq(dbLessons.status, "published")
+            )
+          );
+        lessonIds = lessons.map((l) => l.id);
+      }
 
-    const questionsByQuiz = new Map<string, any[]>();
-    INITIAL_QUESTIONS.forEach((q) => {
-      const arr = questionsByQuiz.get(q.quizId) || [];
-      arr.push(q);
-      questionsByQuiz.set(q.quizId, arr);
-    });
-    dbQuestionList.forEach((q) => {
-      const arr = questionsByQuiz.get(q.quizId) || [];
-      arr.push(q);
-      questionsByQuiz.set(q.quizId, arr);
-    });
+      if (topicIds.length > 0 || lessonIds.length > 0) {
+        const quizConditions = [];
+        if (topicIds.length > 0) {
+          quizConditions.push(inArray(dbQuizzes.topicId, topicIds));
+        }
+        if (lessonIds.length > 0) {
+          quizConditions.push(inArray(dbQuizzes.lessonId, lessonIds));
+        }
 
-    const attemptsMap = new Map<string, any[]>();
-    myAttempts.forEach((a) => {
-      const arr = attemptsMap.get(a.quizId) || [];
-      arr.push(a);
-      attemptsMap.set(a.quizId, arr);
-    });
+        activeQuizzes = await db
+          .select()
+          .from(dbQuizzes)
+          .where(
+            and(
+              isNull(dbQuizzes.deletedAt),
+              quizConditions.length === 1 ? quizConditions[0] : or(...quizConditions)
+            )
+          );
 
-    featuredQuizzes = Array.from(allQuizzesMap.values()).map((q) => {
-      const topic = q.topicId ? topicMap.get(q.topicId) : null;
-      const sub = topic?.subjectId ? subjectMap.get(topic.subjectId) : null;
-      const qQuestions = questionsByQuiz.get(q.id) || [];
-      const hasAiGrading = qQuestions.some(
-        (ques) => ques.type === "open_ended" || ques.aiGradingEnabled
-      );
-      const userAtts = attemptsMap.get(q.id) || [];
-      const bestScore = userAtts.length > 0 ? Math.max(...userAtts.map((a) => a.score)) : null;
-      const isPassed = (bestScore ?? 0) >= (q.passingScore || 70);
+        if (activeQuizzes.length > 0) {
+          const quizIds = activeQuizzes.map((q) => q.id);
 
-      return {
-        id: q.id,
-        title: q.title,
-        topicTitle: topic?.title || "Mastery Topic",
-        subjectTitle: sub?.title || "Curriculum",
-        passingScore: q.passingScore || 70,
-        timeLimitMinutes: q.timeLimitMinutes || 0,
-        questionCount: qQuestions.length || 3,
-        hasAiGrading,
-        bestScore,
-        isPassed,
-        hasAttempts: userAtts.length > 0,
-      };
-    });
+          const dbQuestionList = await db
+            .select()
+            .from(dbQuestions)
+            .where(inArray(dbQuestions.quizId, quizIds));
+
+          const myAttempts = await db
+            .select()
+            .from(dbAttempts)
+            .where(
+              and(
+                eq(dbAttempts.userId, userUuid),
+                inArray(dbAttempts.quizId, quizIds)
+              )
+            );
+
+          const questionsByQuiz = new Map<string, any[]>();
+          dbQuestionList.forEach((q) => {
+            const arr = questionsByQuiz.get(q.quizId) || [];
+            arr.push(q);
+            questionsByQuiz.set(q.quizId, arr);
+          });
+
+          const attemptsMap = new Map<string, any[]>();
+          myAttempts.forEach((a) => {
+            const arr = attemptsMap.get(a.quizId) || [];
+            arr.push(a);
+            attemptsMap.set(a.quizId, arr);
+          });
+
+          featuredQuizzes = activeQuizzes.map((q) => {
+            const topic = q.topicId ? topicMap.get(q.topicId) : null;
+            const sub = topic?.subjectId ? subjectMap.get(topic.subjectId) : null;
+            const qQuestions = questionsByQuiz.get(q.id) || [];
+            const hasAiGrading = qQuestions.some(
+              (ques) => ques.type === "open_ended" || ques.aiGradingEnabled
+            );
+            const userAtts = attemptsMap.get(q.id) || [];
+            const bestScore = userAtts.length > 0 ? Math.max(...userAtts.map((a) => a.score)) : null;
+            const isPassed = (bestScore ?? 0) >= (q.passingScore || 70);
+
+            return {
+              id: q.id,
+              title: q.title,
+              topicTitle: topic?.title || "Mastery Topic",
+              subjectTitle: sub?.title || "Curriculum",
+              passingScore: q.passingScore || 70,
+              timeLimitMinutes: q.timeLimitMinutes || 0,
+              questionCount: qQuestions.length,
+              hasAiGrading,
+              bestScore,
+              isPassed,
+              hasAttempts: userAtts.length > 0,
+            };
+          });
+        }
+      }
+    }
   } catch (err) {
     console.error("Error fetching featured quizzes for student dashboard:", err);
   }

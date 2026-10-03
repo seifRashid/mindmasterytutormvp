@@ -45,6 +45,7 @@ export default async function AdminEditQuizPage({
         passingScore: mockQuiz.passingScore,
         timeLimitMinutes: 0,
         showFeedback: mockQuiz.showFeedback ?? true,
+        deletedAt: mockQuiz.deletedAt ? new Date(mockQuiz.deletedAt) : null,
         createdAt: new Date(mockQuiz.createdAt),
       };
     }

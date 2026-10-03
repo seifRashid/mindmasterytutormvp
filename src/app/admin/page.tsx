@@ -19,7 +19,7 @@ import { INITIAL_LESSONS, INITIAL_QUIZZES, INITIAL_TOPICS } from "@/lib/mock-dat
 import { getUsers } from "@/lib/user-store";
 import { db } from "@/db";
 import { classes as dbClasses, subjects as dbSubjects, topics as dbTopics, lessons as dbLessons, quizzes as dbQuizzes } from "@/db/schema";
-import { count } from "drizzle-orm";
+import { count, isNull } from "drizzle-orm";
 
 export default async function AdminDashboardPage() {
   const session = await getSession();
@@ -28,8 +28,8 @@ export default async function AdminDashboardPage() {
   const [classesCountResult] = await db.select({ value: count() }).from(dbClasses);
   const [subjectsCountResult] = await db.select({ value: count() }).from(dbSubjects);
   const [topicsCountResult] = await db.select({ value: count() }).from(dbTopics);
-  const [lessonsCountResult] = await db.select({ value: count() }).from(dbLessons);
-  const [quizzesCountResult] = await db.select({ value: count() }).from(dbQuizzes);
+  const [lessonsCountResult] = await db.select({ value: count() }).from(dbLessons).where(isNull(dbLessons.deletedAt));
+  const [quizzesCountResult] = await db.select({ value: count() }).from(dbQuizzes).where(isNull(dbQuizzes.deletedAt));
 
   const dbClassesList = await db.select().from(dbClasses).orderBy(dbClasses.name);
   const classesList = dbClassesList.map((c) => ({ id: c.id, name: c.name }));

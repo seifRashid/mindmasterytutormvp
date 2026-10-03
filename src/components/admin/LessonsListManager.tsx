@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Video, FileText, HelpCircle, Pencil, Trash2, Search, SlidersHorizontal } from "lucide-react";
+import { Video, FileText, HelpCircle, Pencil, Trash2, Search, SlidersHorizontal, Lock, UserCheck } from "lucide-react";
 import Link from "next/link";
 import { LessonActionButtons } from "./LessonActionButtons";
+import { toUuid } from "@/lib/id-mapper";
 
 interface LessonsListManagerProps {
   lessons: any[];
@@ -12,6 +13,7 @@ interface LessonsListManagerProps {
   classes: any[];
   isRecycleBin: boolean;
   isAdmin?: boolean;
+  currentUserId?: string;
 }
 
 export function LessonsListManager({
@@ -21,16 +23,22 @@ export function LessonsListManager({
   classes,
   isRecycleBin,
   isAdmin = false,
+  currentUserId,
 }: LessonsListManagerProps) {
   // Filter States
   const [searchTitle, setSearchTitle] = useState("");
   const [selectedClassId, setSelectedClassId] = useState("");
   const [selectedSubjectId, setSelectedSubjectId] = useState("");
   const [selectedTopicId, setSelectedTopicId] = useState("");
+  const [authorFilter, setAuthorFilter] = useState<"all" | "mine">("all");
 
   const editBaseUrl = isAdmin ? "/admin/lessons" : "/teacher/lessons";
   const accentColor = isAdmin ? "focus:ring-blue-500" : "focus:ring-indigo-500";
-  const editBg = isAdmin ? "bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 hover:bg-blue-100" : "bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100";
+  const editBg = isAdmin
+    ? "bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 hover:bg-blue-100"
+    : "bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100";
+
+  const userUuid = currentUserId ? toUuid(currentUserId) : null;
 
   // Dynamic Dependent Filters
   const filteredSubjectsList = useMemo(() => {
@@ -43,7 +51,9 @@ export function LessonsListManager({
       return topics.filter((t) => t.subjectId === selectedSubjectId);
     }
     if (selectedClassId) {
-      const allowedSubjectIds = new Set(subjects.filter((s) => s.classId === selectedClassId).map((s) => s.id));
+      const allowedSubjectIds = new Set(
+        subjects.filter((s) => s.classId === selectedClassId).map((s) => s.id)
+      );
       return topics.filter((t) => allowedSubjectIds.has(t.subjectId));
     }
     return topics;
@@ -51,7 +61,13 @@ export function LessonsListManager({
 
   const filteredLessons = useMemo(() => {
     return lessons.filter((les) => {
-      if (isRecycleBin) return true; // Do not apply filters to Recycle Bin items
+      if (isRecycleBin) {
+        // In recycle bin for teachers, also allow filtering or seeing their own deleted lessons
+        if (!isAdmin && authorFilter === "mine" && userUuid) {
+          return les.createdBy && toUuid(les.createdBy) === userUuid;
+        }
+        return true;
+      }
 
       const topic = topics.find((t) => t.id === les.topicId);
       const subject = topic ? subjects.find((s) => s.id === topic.subjectId) : null;
@@ -62,18 +78,68 @@ export function LessonsListManager({
       const matchesSubject = !selectedSubjectId || subject?.id === selectedSubjectId;
       const matchesTopic = !selectedTopicId || topic?.id === selectedTopicId;
 
-      return matchesTitle && matchesClass && matchesSubject && matchesTopic;
+      // Ownership filter for teachers
+      let matchesAuthor = true;
+      if (!isAdmin && authorFilter === "mine" && userUuid) {
+        matchesAuthor = Boolean(les.createdBy && toUuid(les.createdBy) === userUuid);
+      }
+
+      return matchesTitle && matchesClass && matchesSubject && matchesTopic && matchesAuthor;
     });
-  }, [lessons, isRecycleBin, searchTitle, selectedClassId, selectedSubjectId, selectedTopicId, topics, subjects, classes]);
+  }, [
+    lessons,
+    isRecycleBin,
+    searchTitle,
+    selectedClassId,
+    selectedSubjectId,
+    selectedTopicId,
+    authorFilter,
+    isAdmin,
+    userUuid,
+    topics,
+    subjects,
+    classes,
+  ]);
 
   return (
     <div className="space-y-5">
       {/* ── FILTER CONTROL PANEL ───────────────────────────────────── */}
       {!isRecycleBin && (
         <div className="p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
-          <div className="flex items-center gap-2 border-b border-slate-100 dark:border-slate-800 pb-3 text-slate-700 dark:text-slate-200">
-            <SlidersHorizontal className="w-4 h-4 text-slate-500" />
-            <h2 className="text-sm font-bold">Filter & Search Lessons</h2>
+          <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+            <div className="flex items-center gap-2 text-slate-700 dark:text-slate-200">
+              <SlidersHorizontal className="w-4 h-4 text-slate-500" />
+              <h2 className="text-sm font-bold">Filter & Search Lessons</h2>
+            </div>
+
+            {/* Quick Author toggle for teachers */}
+            {!isAdmin && userUuid && (
+              <div className="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-slate-800 rounded-xl text-xs font-semibold">
+                <button
+                  type="button"
+                  onClick={() => setAuthorFilter("all")}
+                  className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
+                    authorFilter === "all"
+                      ? "bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm"
+                      : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+                  }`}
+                >
+                  All Lessons
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAuthorFilter("mine")}
+                  className={`px-2.5 py-1 rounded-lg transition-all flex items-center gap-1 cursor-pointer ${
+                    authorFilter === "mine"
+                      ? "bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm"
+                      : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+                  }`}
+                >
+                  <UserCheck className="w-3.5 h-3.5" />
+                  My Lessons Only
+                </button>
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -108,10 +174,16 @@ export function LessonsListManager({
                 }}
                 className={`w-full px-3 py-2 border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-xs font-semibold rounded-xl text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 ${accentColor} transition-all`}
               >
-                <option value="" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">All Grades</option>
-                {classes.map((c) => (
-                  <option key={c.id} value={c.id} className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">
-                    {c.name}
+                <option value="" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">
+                  All Grades
+                </option>
+                {classes.map((cls) => (
+                  <option
+                    key={cls.id}
+                    value={cls.id}
+                    className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200"
+                  >
+                    {cls.name}
                   </option>
                 ))}
               </select>
@@ -126,13 +198,19 @@ export function LessonsListManager({
                 value={selectedSubjectId}
                 onChange={(e) => {
                   setSelectedSubjectId(e.target.value);
-                  setSelectedTopicId(""); // Reset dependent filters
+                  setSelectedTopicId(""); // Reset dependent filter
                 }}
                 className={`w-full px-3 py-2 border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-xs font-semibold rounded-xl text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 ${accentColor} transition-all`}
               >
-                <option value="" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">All Subjects</option>
+                <option value="" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">
+                  All Subjects
+                </option>
                 {filteredSubjectsList.map((s) => (
-                  <option key={s.id} value={s.id} className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">
+                  <option
+                    key={s.id}
+                    value={s.id}
+                    className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200"
+                  >
                     {s.title}
                   </option>
                 ))}
@@ -149,9 +227,15 @@ export function LessonsListManager({
                 onChange={(e) => setSelectedTopicId(e.target.value)}
                 className={`w-full px-3 py-2 border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-xs font-semibold rounded-xl text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 ${accentColor} transition-all`}
               >
-                <option value="" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">All Topics</option>
+                <option value="" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">
+                  All Topics
+                </option>
                 {filteredTopicsList.map((t) => (
-                  <option key={t.id} value={t.id} className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">
+                  <option
+                    key={t.id}
+                    value={t.id}
+                    className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200"
+                  >
                     {t.title}
                   </option>
                 ))}
@@ -186,6 +270,10 @@ export function LessonsListManager({
                 const subject = topic ? subjects.find((s) => s.id === topic.subjectId) : null;
                 const classLevel = subject ? classes.find((c) => c.id === subject.classId) : null;
 
+                // Ownership calculation: admin has full rights; teacher only owns lessons created by them
+                const isOwner = Boolean(userUuid && les.createdBy && toUuid(les.createdBy) === userUuid);
+                const canModify = isAdmin || isOwner;
+
                 // Calculate remaining time in Recycle Bin
                 let hoursLeft = 0;
                 if (isRecycleBin && les.deletedAt) {
@@ -200,10 +288,26 @@ export function LessonsListManager({
                         {les.title}
                       </p>
                       <p className="text-slate-500 mt-0.5 line-clamp-1">{les.description}</p>
+                      {!isAdmin && (
+                        <div className="mt-1">
+                          {isOwner ? (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400">
+                              Created by You
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-500">
+                              Other Author
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </td>
                     <td className="p-4 hidden md:table-cell">
                       <p className="font-semibold text-slate-700 dark:text-slate-200">{topic?.title ?? "—"}</p>
-                      <p className="text-slate-400">{classLevel?.name} · {subject?.title}</p>
+                      <p className="text-slate-400">
+                        {classLevel?.name ? `${classLevel.name} · ` : ""}
+                        {subject?.title}
+                      </p>
                     </td>
                     <td className="p-4 hidden lg:table-cell text-slate-500 font-mono">
                       {isRecycleBin && les.deletedAt
@@ -239,29 +343,48 @@ export function LessonsListManager({
                     </td>
                     <td className="p-4">
                       <div className="flex items-center justify-end gap-2.5">
-                        {isRecycleBin ? (
-                          <LessonActionButtons
-                            lessonId={les.id}
-                            lessonTitle={les.title}
-                            mode="recycle"
-                            isAdmin={isAdmin}
-                          />
-                        ) : (
-                          <>
-                            <Link
-                              href={`${editBaseUrl}/${les.id}`}
-                              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg ${editBg} font-semibold transition-colors`}
-                            >
-                              <Pencil className="w-3.5 h-3.5" />
-                              Edit
-                            </Link>
+                        {canModify ? (
+                          isRecycleBin ? (
                             <LessonActionButtons
                               lessonId={les.id}
                               lessonTitle={les.title}
-                              mode="active"
+                              mode="recycle"
                               isAdmin={isAdmin}
                             />
-                          </>
+                          ) : (
+                            <>
+                              <Link
+                                href={`${editBaseUrl}/${les.id}`}
+                                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg ${editBg} font-semibold transition-colors`}
+                              >
+                                <Pencil className="w-3.5 h-3.5" />
+                                Edit
+                              </Link>
+                              <LessonActionButtons
+                                lessonId={les.id}
+                                lessonTitle={les.title}
+                                mode="active"
+                                isAdmin={isAdmin}
+                              />
+                            </>
+                          )
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <Link
+                              href={`/dashboard/lessons/${les.id}`}
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors font-medium text-xs"
+                              title="Preview student view"
+                            >
+                              Preview
+                            </Link>
+                            <span
+                              className="inline-flex items-center gap-1 px-2 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-400 text-xs font-semibold select-none"
+                              title="You can only edit or delete lessons that were created by you"
+                            >
+                              <Lock className="w-3 h-3 text-slate-400" />
+                              View Only
+                            </span>
+                          </div>
                         )}
                       </div>
                     </td>

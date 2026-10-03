@@ -18,12 +18,21 @@ import {
   Topic,
 } from "@/lib/mock-data";
 import { db } from "@/db";
-import { subjects, classes as dbClasses, topics as dbTopics, quizzes as dbQuizzes, questions as dbQuestions, answers as dbAnswers } from "@/db/schema";
+import {
+  subjects,
+  classes as dbClasses,
+  topics as dbTopics,
+  lessons as dbLessons,
+  quizzes as dbQuizzes,
+  questions as dbQuestions,
+  answers as dbAnswers,
+} from "@/db/schema";
 import { toUuid } from "@/lib/id-mapper";
 import { eq } from "drizzle-orm";
 import { getSession } from "@/lib/auth";
 import { generateMarkingGuide, evaluateStudentAnswer } from "@/lib/ai/grading";
 import { getAiConfig } from "@/lib/ai/client";
+import { formatVideoEmbedUrl } from "@/lib/video-utils";
 
 export async function createClassAction(formData: FormData) {
   const name = formData.get("name") as string;
@@ -52,6 +61,8 @@ export async function createClassAction(formData: FormData) {
   }
 
   revalidatePath("/admin/classes");
+  revalidatePath("/dashboard/subjects");
+  revalidatePath("/(auth)/register/student");
   return { success: true, classLevel: newClass };
 }
 
@@ -92,6 +103,9 @@ export async function createSubjectAction(formData: FormData) {
   }
 
   revalidatePath("/admin/subjects");
+  revalidatePath("/dashboard/subjects");
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/progress");
   return { success: true, subject: newSubject };
 }
 
@@ -131,6 +145,8 @@ export async function createTopicAction(formData: FormData) {
   }
 
   revalidatePath("/admin/topics");
+  revalidatePath("/dashboard/subjects");
+  revalidatePath("/dashboard");
   return { success: true, topic: newTopic };
 }
 
@@ -141,22 +157,50 @@ export async function createLessonAction(formData: FormData) {
   const videoUrl = formData.get("videoUrl") as string;
   const duration = parseInt((formData.get("duration") as string) || "600", 10);
 
-  if (!topicId || !title || !videoUrl) return { error: "Topic, title, and video URL are required" };
+  if (!topicId || !title) return { error: "Topic and title are required" };
 
+  const session = await getSession();
+  const userUuid = session?.id ? toUuid(session.id) : null;
+  const formattedVideo = videoUrl ? formatVideoEmbedUrl(videoUrl) : null;
+
+  const lessonUuid = crypto.randomUUID();
   const newLesson: Lesson = {
-    id: `les-${Date.now()}`,
+    id: lessonUuid,
     topicId,
     title,
     description: description || "",
-    videoUrl,
+    videoUrl: formattedVideo || videoUrl || "",
     duration,
     orderNumber: INITIAL_LESSONS.length + 1,
     createdAt: new Date().toISOString(),
   };
 
   INITIAL_LESSONS.push(newLesson);
+
+  try {
+    await db.insert(dbLessons).values({
+      id: lessonUuid,
+      topicId: toUuid(topicId),
+      title,
+      description: description || null,
+      richContent: null,
+      videoUrl: formattedVideo || null,
+      duration,
+      orderNumber: INITIAL_LESSONS.length,
+      status: "published",
+      createdBy: userUuid,
+      createdAt: new Date(),
+    });
+  } catch (err) {
+    console.error("Failed to insert lesson into DB:", err);
+    return { error: "Failed to create lesson in database." };
+  }
+
   revalidatePath("/admin/lessons");
   revalidatePath("/teacher/lessons");
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/subjects");
+  revalidatePath("/dashboard/progress");
   return { success: true, lesson: newLesson };
 }
 
@@ -176,6 +220,9 @@ export async function createQuizAction(formData: FormData) {
     return { error: "Topic, quiz title, and question text are required" };
   }
 
+  const session = await getSession();
+  const userUuid = session?.id ? toUuid(session.id) : null;
+
   const quizId = `quiz-${Date.now()}`;
   const newQuiz: Quiz = {
     id: quizId,
@@ -183,6 +230,7 @@ export async function createQuizAction(formData: FormData) {
     title,
     passingScore,
     showFeedback: true,
+    createdBy: userUuid,
     createdAt: new Date().toISOString(),
   };
 
@@ -215,6 +263,7 @@ export async function createQuizAction(formData: FormData) {
       title: newQuiz.title,
       passingScore: newQuiz.passingScore,
       showFeedback: newQuiz.showFeedback,
+      createdBy: userUuid,
       createdAt: new Date(newQuiz.createdAt),
     });
 
@@ -243,6 +292,9 @@ export async function createQuizAction(formData: FormData) {
 
   revalidatePath("/admin/quizzes");
   revalidatePath("/teacher/quizzes");
+  revalidatePath("/dashboard/quizzes");
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/subjects");
   return { success: true, quiz: newQuiz };
 }
 
@@ -280,7 +332,23 @@ export async function deleteEntityAction(entityType: "class" | "subject" | "topi
   } else if (entityType === "lesson") {
     const idx = INITIAL_LESSONS.findIndex((l) => l.id === id);
     if (idx > -1) INITIAL_LESSONS.splice(idx, 1);
+
+    try {
+      await db.update(dbLessons).set({ deletedAt: new Date() }).where(eq(dbLessons.id, toUuid(id)));
+    } catch (err) {
+      console.error("Failed to delete lesson from DB:", err);
+      return { error: "Failed to delete lesson from database." };
+    }
   } else if (entityType === "quiz") {
+    const session = await getSession();
+    if (session && session.role !== "admin") {
+      const existing = await db.select().from(dbQuizzes).where(eq(dbQuizzes.id, toUuid(id)));
+      const userUuid = session.id ? toUuid(session.id) : null;
+      if (existing.length > 0 && existing[0].createdBy && existing[0].createdBy !== userUuid) {
+        return { error: "Unauthorized: Teachers can only delete quizzes created by themselves." };
+      }
+    }
+
     const idx = INITIAL_QUIZZES.findIndex((q) => q.id === id);
     if (idx > -1) INITIAL_QUIZZES.splice(idx, 1);
 
@@ -302,7 +370,17 @@ export async function deleteEntityAction(entityType: "class" | "subject" | "topi
   revalidatePath("/admin/classes");
   revalidatePath("/admin/subjects");
   revalidatePath("/admin/topics");
+  revalidatePath("/admin/lessons");
+  revalidatePath("/admin/quizzes");
   revalidatePath("/teacher");
+  revalidatePath("/teacher/lessons");
+  revalidatePath("/teacher/quizzes");
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/subjects");
+  revalidatePath("/dashboard/quizzes");
+  revalidatePath("/dashboard/progress");
+  revalidatePath(`/dashboard/lessons/${id}`);
+  revalidatePath(`/dashboard/quizzes/${id}`);
   return { success: true };
 }
 
@@ -349,6 +427,8 @@ export async function editSubjectAction(formData: FormData) {
 
   revalidatePath("/admin/subjects");
   revalidatePath("/dashboard/subjects");
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/progress");
   return { success: true };
 }
 
@@ -385,6 +465,8 @@ export async function editClassAction(formData: FormData) {
   }
 
   revalidatePath("/admin/classes");
+  revalidatePath("/dashboard/subjects");
+  revalidatePath("/dashboard");
   return { success: true };
 }
 
@@ -430,6 +512,8 @@ export async function editTopicAction(formData: FormData) {
   }
 
   revalidatePath("/admin/topics");
+  revalidatePath("/dashboard/subjects");
+  revalidatePath("/dashboard");
   return { success: true };
 }
 
@@ -540,6 +624,15 @@ export async function saveQuizWithQuestionsAction(payload: SaveQuizPayload) {
         createdAt: new Date(),
       });
     } else {
+      // Permission check: teachers can only edit quizzes created by themselves
+      if (session?.role !== "admin") {
+        const existing = await db.select().from(dbQuizzes).where(eq(dbQuizzes.id, quizId));
+        const userUuid = session?.id ? toUuid(session.id) : null;
+        if (existing.length > 0 && existing[0].createdBy && existing[0].createdBy !== userUuid) {
+          return { error: "Unauthorized: Teachers can only edit quizzes created by themselves." };
+        }
+      }
+
       await db
         .update(dbQuizzes)
         .set({
@@ -623,8 +716,11 @@ export async function saveQuizWithQuestionsAction(payload: SaveQuizPayload) {
     revalidatePath("/teacher/quizzes");
     revalidatePath(`/teacher/quizzes/${quizId}`);
     revalidatePath("/teacher/grading");
+    revalidatePath("/dashboard");
+    revalidatePath("/dashboard/quizzes");
     revalidatePath(`/dashboard/quizzes/${quizId}`);
-    revalidatePath("/dashboard/subjects", "layout");
+    revalidatePath("/dashboard/subjects");
+    revalidatePath("/dashboard/progress");
 
     return { success: true, quizId };
   } catch (err: any) {

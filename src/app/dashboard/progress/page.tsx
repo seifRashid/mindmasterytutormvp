@@ -81,19 +81,70 @@ async function getStreakDays(userId: string): Promise<number> {
 export default async function StudentProgressPage() {
   const session = await getSession();
   const currentUser = session ? await findUserById(session.id) : null;
+  const status = currentUser?.status || session?.status || "approved";
 
-  if (!currentUser) {
-    redirect("/login");
+  if (!currentUser || status === "pending" || status === "rejected") {
+    redirect("/pending-approval");
   }
 
   const userUuid = toUuid(currentUser.id);
+  const classUuid = currentUser.classId ? toUuid(currentUser.classId) : null;
 
-  // 1. Get Completed Lessons Count
-  const completedProgress = await db
-    .select()
-    .from(dbProgress)
-    .where(and(eq(dbProgress.userId, userUuid), eq(dbProgress.completed, true)));
-  const completedLessonsCount = completedProgress.length;
+  // 1. Get Enrolled Subjects & Dynamic Progress Breakdown
+  const studentSubjects = classUuid
+    ? await db.select().from(dbSubjects).where(eq(dbSubjects.classId, classUuid))
+    : [];
+
+  const subjectProgressList = [];
+  let totalActiveLessons = 0;
+  let totalCompletedLessons = 0;
+
+  for (const sub of studentSubjects) {
+    const topicsList = await db
+      .select()
+      .from(dbTopics)
+      .where(eq(dbTopics.subjectId, sub.id));
+
+    let percent = 0;
+
+    if (topicsList.length > 0) {
+      const topicIds = topicsList.map((t) => t.id);
+      const lessonsList = await db
+        .select()
+        .from(dbLessons)
+        .where(
+          and(
+            inArray(dbLessons.topicId, topicIds),
+            isNull(dbLessons.deletedAt),
+            eq(dbLessons.status, "published")
+          )
+        );
+
+      if (lessonsList.length > 0) {
+        totalActiveLessons += lessonsList.length;
+        const lessonIds = lessonsList.map((l) => l.id);
+        const completedInSub = await db
+          .select()
+          .from(dbProgress)
+          .where(
+            and(
+              eq(dbProgress.userId, userUuid),
+              eq(dbProgress.completed, true),
+              inArray(dbProgress.lessonId, lessonIds)
+            )
+          );
+        totalCompletedLessons += completedInSub.length;
+        percent = Math.round((completedInSub.length / lessonsList.length) * 100);
+      }
+    }
+
+    subjectProgressList.push({
+      ...sub,
+      percent,
+    });
+  }
+
+  const completedLessonsCount = totalCompletedLessons;
 
   // 2. Get Avg Quiz Accuracy Score & Passed Quizzes (Badges)
   const attempts = await db
@@ -115,58 +166,7 @@ export default async function StudentProgressPage() {
   // 3. Get Learning Streak
   const streakDays = await getStreakDays(currentUser.id);
 
-  // 4. Get Enrolled Subjects & Dynamic Progress Breakdown
-  const classUuid = currentUser.classId ? toUuid(currentUser.classId) : null;
-  const studentSubjects = classUuid
-    ? await db.select().from(dbSubjects).where(eq(dbSubjects.classId, classUuid))
-    : [];
 
-  const subjectProgressList = [];
-
-  for (const sub of studentSubjects) {
-    // Get all topics for this subject
-    const topicsList = await db
-      .select()
-      .from(dbTopics)
-      .where(eq(dbTopics.subjectId, sub.id));
-
-    let percent = 0;
-
-    if (topicsList.length > 0) {
-      const topicIds = topicsList.map((t) => t.id);
-      // Get all lessons for these topics
-      const lessonsList = await db
-        .select()
-        .from(dbLessons)
-        .where(
-          and(
-            inArray(dbLessons.topicId, topicIds),
-            isNull(dbLessons.deletedAt),
-            eq(dbLessons.status, "published")
-          )
-        );
-
-      if (lessonsList.length > 0) {
-        const lessonIds = lessonsList.map((l) => l.id);
-        const completedInSub = await db
-          .select()
-          .from(dbProgress)
-          .where(
-            and(
-              eq(dbProgress.userId, userUuid),
-              eq(dbProgress.completed, true),
-              inArray(dbProgress.lessonId, lessonIds)
-            )
-          );
-        percent = Math.round((completedInSub.length / lessonsList.length) * 100);
-      }
-    }
-
-    subjectProgressList.push({
-      ...sub,
-      percent,
-    });
-  }
 
   return (
     <div className="min-h-screen bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-white flex flex-col">

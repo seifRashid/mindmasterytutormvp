@@ -6,6 +6,8 @@ import { lessons as dbLessons, lessonAttachments, quizzes, questions, answers } 
 import { eq, and, lt, isNotNull, inArray } from "drizzle-orm";
 import { toUuid } from "@/lib/id-mapper";
 
+import { getSession } from "@/lib/auth";
+
 /**
  * Automatically purge lessons from the recycle bin that were deleted more than 2 days (48 hours) ago.
  */
@@ -24,10 +26,26 @@ export async function purgeExpiredRecycleBin() {
 
 /**
  * Soft deletes a lesson by setting its deletedAt timestamp.
+ * Teachers can only delete lessons created by themselves; admins have full rights.
  */
 export async function softDeleteLessonAction(lessonId: string) {
   try {
+    const session = await getSession();
+    if (!session) {
+      return { success: false, error: "Unauthorized: You must be logged in." };
+    }
+
     const lessonUuid = toUuid(lessonId);
+
+    // Permission check for teachers
+    if (session.role !== "admin") {
+      const existing = await db.select().from(dbLessons).where(eq(dbLessons.id, lessonUuid));
+      const userUuid = toUuid(session.id);
+      if (existing.length > 0 && existing[0].createdBy && existing[0].createdBy !== userUuid) {
+        return { success: false, error: "Unauthorized: Teachers can only delete lessons created by themselves." };
+      }
+    }
+
     await db
       .update(dbLessons)
       .set({ deletedAt: new Date() })
@@ -36,6 +54,10 @@ export async function softDeleteLessonAction(lessonId: string) {
     revalidatePath("/teacher/lessons");
     revalidatePath("/admin/lessons");
     revalidatePath("/dashboard");
+    revalidatePath("/dashboard/subjects");
+    revalidatePath("/dashboard/progress");
+    revalidatePath(`/dashboard/lessons/${lessonId}`);
+    revalidatePath(`/dashboard/lessons/${lessonUuid}`);
     return { success: true };
   } catch (err) {
     console.error("Failed to soft delete lesson:", err);
@@ -45,10 +67,26 @@ export async function softDeleteLessonAction(lessonId: string) {
 
 /**
  * Restores a soft-deleted lesson by nullifying its deletedAt timestamp.
+ * Teachers can only restore lessons created by themselves; admins have full rights.
  */
 export async function restoreLessonAction(lessonId: string) {
   try {
+    const session = await getSession();
+    if (!session) {
+      return { success: false, error: "Unauthorized: You must be logged in." };
+    }
+
     const lessonUuid = toUuid(lessonId);
+
+    // Permission check for teachers
+    if (session.role !== "admin") {
+      const existing = await db.select().from(dbLessons).where(eq(dbLessons.id, lessonUuid));
+      const userUuid = toUuid(session.id);
+      if (existing.length > 0 && existing[0].createdBy && existing[0].createdBy !== userUuid) {
+        return { success: false, error: "Unauthorized: Teachers can only restore lessons created by themselves." };
+      }
+    }
+
     await db
       .update(dbLessons)
       .set({ deletedAt: null })
@@ -57,6 +95,10 @@ export async function restoreLessonAction(lessonId: string) {
     revalidatePath("/teacher/lessons");
     revalidatePath("/admin/lessons");
     revalidatePath("/dashboard");
+    revalidatePath("/dashboard/subjects");
+    revalidatePath("/dashboard/progress");
+    revalidatePath(`/dashboard/lessons/${lessonId}`);
+    revalidatePath(`/dashboard/lessons/${lessonUuid}`);
     return { success: true };
   } catch (err) {
     console.error("Failed to restore lesson:", err);
@@ -66,19 +108,200 @@ export async function restoreLessonAction(lessonId: string) {
 
 /**
  * Permanently deletes a lesson from the database.
+ * Teachers can only permanently delete lessons created by themselves; admins have full rights.
  */
 export async function permanentlyDeleteLessonAction(lessonId: string) {
   try {
+    const session = await getSession();
+    if (!session) {
+      return { success: false, error: "Unauthorized: You must be logged in." };
+    }
+
     const lessonUuid = toUuid(lessonId);
+
+    // Permission check for teachers
+    if (session.role !== "admin") {
+      const existing = await db.select().from(dbLessons).where(eq(dbLessons.id, lessonUuid));
+      const userUuid = toUuid(session.id);
+      if (existing.length > 0 && existing[0].createdBy && existing[0].createdBy !== userUuid) {
+        return { success: false, error: "Unauthorized: Teachers can only permanently delete lessons created by themselves." };
+      }
+    }
+
     await db.delete(dbLessons).where(eq(dbLessons.id, lessonUuid));
 
     revalidatePath("/teacher/lessons");
     revalidatePath("/admin/lessons");
     revalidatePath("/dashboard");
+    revalidatePath("/dashboard/subjects");
+    revalidatePath("/dashboard/progress");
+    revalidatePath(`/dashboard/lessons/${lessonId}`);
+    revalidatePath(`/dashboard/lessons/${lessonUuid}`);
     return { success: true };
   } catch (err) {
     console.error("Failed to permanently delete lesson:", err);
     return { success: false, error: "Failed to permanently delete lesson." };
+  }
+}
+
+import { INITIAL_QUIZZES, INITIAL_QUESTIONS } from "@/lib/mock-data";
+
+/**
+ * Automatically purge quizzes from the recycle bin that were deleted more than 30 days (1 month) ago.
+ */
+export async function purgeExpiredRecycleBinQuizzes() {
+  try {
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - 30); // 30 days ago (1 month)
+
+    await db
+      .delete(quizzes)
+      .where(and(isNotNull(quizzes.deletedAt), lt(quizzes.deletedAt, cutoff)));
+  } catch (err) {
+    console.error("Failed to purge expired quizzes from recycle bin:", err);
+  }
+}
+
+/**
+ * Soft deletes a quiz by setting its deletedAt timestamp.
+ * Teachers can only delete quizzes created by themselves; admins have full rights.
+ */
+export async function softDeleteQuizAction(quizId: string) {
+  try {
+    const session = await getSession();
+    if (!session) {
+      return { success: false, error: "Unauthorized: You must be logged in." };
+    }
+
+    const quizUuid = toUuid(quizId);
+
+    // Permission check for teachers
+    if (session.role !== "admin") {
+      const existing = await db.select().from(quizzes).where(eq(quizzes.id, quizUuid));
+      const userUuid = toUuid(session.id);
+      if (existing.length > 0 && existing[0].createdBy && existing[0].createdBy !== userUuid) {
+        return { success: false, error: "Unauthorized: Teachers can only delete quizzes created by themselves." };
+      }
+    }
+
+    await db
+      .update(quizzes)
+      .set({ deletedAt: new Date() })
+      .where(eq(quizzes.id, quizUuid));
+
+    const mockIdx = INITIAL_QUIZZES.findIndex((q) => q.id === quizId);
+    if (mockIdx > -1) {
+      (INITIAL_QUIZZES[mockIdx] as any).deletedAt = new Date().toISOString();
+    }
+
+    revalidatePath("/teacher/quizzes");
+    revalidatePath("/admin/quizzes");
+    revalidatePath("/dashboard");
+    revalidatePath("/dashboard/quizzes");
+    revalidatePath("/dashboard/subjects");
+    revalidatePath("/dashboard/progress");
+    revalidatePath(`/dashboard/quizzes/${quizId}`);
+    revalidatePath(`/dashboard/quizzes/${quizUuid}`);
+    return { success: true };
+  } catch (err) {
+    console.error("Failed to soft delete quiz:", err);
+    return { success: false, error: "Failed to delete quiz." };
+  }
+}
+
+/**
+ * Restores a soft-deleted quiz by nullifying its deletedAt timestamp.
+ * Teachers can only restore quizzes created by themselves; admins have full rights.
+ */
+export async function restoreQuizAction(quizId: string) {
+  try {
+    const session = await getSession();
+    if (!session) {
+      return { success: false, error: "Unauthorized: You must be logged in." };
+    }
+
+    const quizUuid = toUuid(quizId);
+
+    // Permission check for teachers
+    if (session.role !== "admin") {
+      const existing = await db.select().from(quizzes).where(eq(quizzes.id, quizUuid));
+      const userUuid = toUuid(session.id);
+      if (existing.length > 0 && existing[0].createdBy && existing[0].createdBy !== userUuid) {
+        return { success: false, error: "Unauthorized: Teachers can only restore quizzes created by themselves." };
+      }
+    }
+
+    await db
+      .update(quizzes)
+      .set({ deletedAt: null })
+      .where(eq(quizzes.id, quizUuid));
+
+    const mockIdx = INITIAL_QUIZZES.findIndex((q) => q.id === quizId);
+    if (mockIdx > -1) {
+      (INITIAL_QUIZZES[mockIdx] as any).deletedAt = undefined;
+    }
+
+    revalidatePath("/teacher/quizzes");
+    revalidatePath("/admin/quizzes");
+    revalidatePath("/dashboard");
+    revalidatePath("/dashboard/quizzes");
+    revalidatePath("/dashboard/subjects");
+    revalidatePath("/dashboard/progress");
+    revalidatePath(`/dashboard/quizzes/${quizId}`);
+    revalidatePath(`/dashboard/quizzes/${quizUuid}`);
+    return { success: true };
+  } catch (err) {
+    console.error("Failed to restore quiz:", err);
+    return { success: false, error: "Failed to restore quiz." };
+  }
+}
+
+/**
+ * Permanently deletes a quiz from the database.
+ * Teachers can only permanently delete quizzes created by themselves; admins have full rights.
+ */
+export async function permanentlyDeleteQuizAction(quizId: string) {
+  try {
+    const session = await getSession();
+    if (!session) {
+      return { success: false, error: "Unauthorized: You must be logged in." };
+    }
+
+    const quizUuid = toUuid(quizId);
+
+    // Permission check for teachers
+    if (session.role !== "admin") {
+      const existing = await db.select().from(quizzes).where(eq(quizzes.id, quizUuid));
+      const userUuid = toUuid(session.id);
+      if (existing.length > 0 && existing[0].createdBy && existing[0].createdBy !== userUuid) {
+        return { success: false, error: "Unauthorized: Teachers can only permanently delete quizzes created by themselves." };
+      }
+    }
+
+    await db.delete(quizzes).where(eq(quizzes.id, quizUuid));
+
+    const mockIdx = INITIAL_QUIZZES.findIndex((q) => q.id === quizId);
+    if (mockIdx > -1) {
+      INITIAL_QUIZZES.splice(mockIdx, 1);
+    }
+    const qIdsToDelete = INITIAL_QUESTIONS.filter((q) => q.quizId === quizId).map((q) => q.id);
+    for (const qId of qIdsToDelete) {
+      const qIdx = INITIAL_QUESTIONS.findIndex((q) => q.id === qId);
+      if (qIdx > -1) INITIAL_QUESTIONS.splice(qIdx, 1);
+    }
+
+    revalidatePath("/teacher/quizzes");
+    revalidatePath("/admin/quizzes");
+    revalidatePath("/dashboard");
+    revalidatePath("/dashboard/quizzes");
+    revalidatePath("/dashboard/subjects");
+    revalidatePath("/dashboard/progress");
+    revalidatePath(`/dashboard/quizzes/${quizId}`);
+    revalidatePath(`/dashboard/quizzes/${quizUuid}`);
+    return { success: true };
+  } catch (err) {
+    console.error("Failed to permanently delete quiz:", err);
+    return { success: false, error: "Failed to permanently delete quiz." };
   }
 }
 
@@ -115,14 +338,25 @@ export async function upsertLessonAction(
   }
 ) {
   try {
+    const session = await getSession();
+    if (!session) {
+      return { success: false, error: "Unauthorized: You must be logged in to create or edit lessons." };
+    }
+    const userUuid = session.id ? toUuid(session.id) : null;
     const lessonUuid = toUuid(lessonId);
-    const topicUuid = toUuid(data.topicId);
+    const topicUuid = data.topicId ? toUuid(data.topicId) : null;
     const formattedVideo = formatVideoEmbedUrl(data.videoUrl);
 
-    // 1. Check if lesson exists
+    // 1. Check if lesson already exists in database
     const existing = await db.select().from(dbLessons).where(eq(dbLessons.id, lessonUuid));
 
-    // Determine the lessonQuizId
+    // Permission check for updating existing lesson
+    if (existing.length > 0 && session.role !== "admin") {
+      if (existing[0].createdBy && existing[0].createdBy !== userUuid) {
+        return { success: false, error: "Unauthorized: Teachers can only edit lessons created by themselves." };
+      }
+    }
+
     let lessonQuizId: string | null = null;
     if (existing.length > 0 && existing[0].lessonQuizId) {
       lessonQuizId = existing[0].lessonQuizId;
@@ -134,15 +368,47 @@ export async function upsertLessonAction(
       }
     }
 
-    // 2. Sync Quiz if enabled
+    // 2. IMPORTANT: Upsert Lesson row FIRST!
+    // This ensures lessons.id exists in the database so foreign keys in quizzes and lesson_attachments succeed.
+    if (existing.length > 0) {
+      await db
+        .update(dbLessons)
+        .set({
+          topicId: topicUuid!,
+          title: data.title,
+          description: data.description,
+          richContent: data.richContent,
+          videoUrl: formattedVideo || null,
+          duration: data.duration,
+          status: data.status,
+          createdBy: existing[0].createdBy || userUuid,
+        })
+        .where(eq(dbLessons.id, lessonUuid));
+    } else {
+      await db.insert(dbLessons).values({
+        id: lessonUuid,
+        topicId: topicUuid!,
+        title: data.title,
+        description: data.description,
+        richContent: data.richContent,
+        videoUrl: formattedVideo || null,
+        duration: data.duration,
+        status: data.status,
+        lessonQuizId: null,
+        createdBy: userUuid,
+      });
+    }
+
+    // 3. Sync Quiz (now foreign key to lessonId is guaranteed to exist)
     if (data.quiz) {
       if (!lessonQuizId) {
-        // Create new quiz
+        // Create new quiz linked to the lesson
         const [newQuiz] = await db
           .insert(quizzes)
           .values({
             lessonId: lessonUuid,
-            topicId: topicUuid,
+            topicId: topicUuid || null,
+            createdBy: userUuid,
             title: data.quiz.title || `Quick Check: ${data.title}`,
             passingScore: data.quiz.passingScore ?? 70,
             timeLimitMinutes: data.quiz.timeLimitMinutes ?? 0,
@@ -156,7 +422,7 @@ export async function upsertLessonAction(
           .update(quizzes)
           .set({
             lessonId: lessonUuid,
-            topicId: topicUuid,
+            topicId: topicUuid || null,
             title: data.quiz.title || `Quick Check: ${data.title}`,
             passingScore: data.quiz.passingScore ?? 70,
             timeLimitMinutes: data.quiz.timeLimitMinutes ?? 0,
@@ -199,38 +465,19 @@ export async function upsertLessonAction(
           }
         }
       }
-    } else {
-      // If quiz was explicitly disabled/removed, disassociate it
-      lessonQuizId = null;
-    }
 
-    // 3. Upsert Lesson details
-    if (existing.length > 0) {
+      // Link quiz to the lesson row
       await db
         .update(dbLessons)
-        .set({
-          topicId: topicUuid,
-          title: data.title,
-          description: data.description,
-          richContent: data.richContent,
-          videoUrl: formattedVideo || null,
-          duration: data.duration,
-          status: data.status,
-          lessonQuizId: lessonQuizId,
-        })
+        .set({ lessonQuizId: lessonQuizId })
         .where(eq(dbLessons.id, lessonUuid));
     } else {
-      await db.insert(dbLessons).values({
-        id: lessonUuid,
-        topicId: topicUuid,
-        title: data.title,
-        description: data.description,
-        richContent: data.richContent,
-        videoUrl: formattedVideo || null,
-        duration: data.duration,
-        status: data.status,
-        lessonQuizId: lessonQuizId,
-      });
+      // If quiz was explicitly disabled/removed, disassociate it
+      await db
+        .update(dbLessons)
+        .set({ lessonQuizId: null })
+        .where(eq(dbLessons.id, lessonUuid));
+      lessonQuizId = null;
     }
 
     // 4. Sync Attachments: Delete old attachments and insert new ones
@@ -258,6 +505,9 @@ export async function upsertLessonAction(
     revalidatePath(`/dashboard/lessons/${lessonId}`);
     revalidatePath(`/dashboard/lessons/${lessonUuid}`);
     revalidatePath("/dashboard");
+    revalidatePath("/dashboard/subjects");
+    revalidatePath("/dashboard/quizzes");
+    revalidatePath("/dashboard/progress");
 
     return { success: true, lessonId: lessonUuid };
   } catch (err: any) {

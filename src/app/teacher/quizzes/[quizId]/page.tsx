@@ -1,4 +1,6 @@
 import { notFound, redirect } from "next/navigation";
+import Link from "next/link";
+import { Lock } from "lucide-react";
 import { Navbar } from "@/components/layout/Navbar";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { QuizBuilder, QuestionItem } from "@/components/admin/QuizBuilder";
@@ -45,6 +47,7 @@ export default async function TeacherEditQuizPage({
         passingScore: mockQuiz.passingScore,
         timeLimitMinutes: 0,
         showFeedback: mockQuiz.showFeedback ?? true,
+        deletedAt: mockQuiz.deletedAt ? new Date(mockQuiz.deletedAt) : null,
         createdAt: new Date(mockQuiz.createdAt),
       };
     }
@@ -52,6 +55,48 @@ export default async function TeacherEditQuizPage({
 
   if (!quiz) {
     notFound();
+  }
+
+  // Permission verification:
+  // Teacher should only edit quizzes that were created by them except for admin who has full rights
+  const userUuid = session?.id ? toUuid(session.id) : null;
+  const isOwner = Boolean(userUuid && quiz.createdBy && toUuid(quiz.createdBy) === userUuid);
+  const isAdmin = session?.role === "admin";
+
+  if (!isAdmin && !isOwner && quiz.createdBy) {
+    return (
+      <div className="min-h-screen bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-white flex flex-col">
+        <Navbar user={session} />
+        <div className="flex-1 flex max-w-7xl w-full mx-auto overflow-x-hidden">
+          <Sidebar role="teacher" />
+          <main className="flex-1 min-w-0 p-8 flex flex-col items-center justify-center text-center">
+            <div className="max-w-md p-8 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl space-y-4">
+              <div className="w-12 h-12 rounded-2xl bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400 mx-auto flex items-center justify-center font-bold">
+                <Lock className="w-6 h-6" />
+              </div>
+              <h2 className="text-xl font-extrabold text-slate-900 dark:text-white">Permission Restricted</h2>
+              <p className="text-xs text-slate-500 leading-relaxed">
+                You can only edit quizzes that were created by you. This quiz was authored by another educator or administrator.
+              </p>
+              <div className="pt-2 flex justify-center gap-3">
+                <Link
+                  href="/teacher/quizzes"
+                  className="px-4 py-2 rounded-xl bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-700 transition-colors"
+                >
+                  Return to Quizzes
+                </Link>
+                <Link
+                  href="/dashboard/quizzes"
+                  className="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                >
+                  All Quizzes
+                </Link>
+              </div>
+            </div>
+          </main>
+        </div>
+      </div>
+    );
   }
 
   // 2. Fetch Questions & Answers

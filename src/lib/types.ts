@@ -94,6 +94,8 @@ export interface Lesson {
   attachments?: LessonAttachment[];
   lessonQuizId?: string;
   status?: "published" | "draft";
+  createdBy?: string | null;
+  deletedAt?: string | null;
   createdAt: string;
 }
 
@@ -101,11 +103,12 @@ export interface Quiz {
   id: string;
   topicId?: string;
   lessonId?: string;
-  createdBy?: string;
+  createdBy?: string | null;
   title: string;
   passingScore: number;
   timeLimitMinutes?: number;
   showFeedback: boolean;
+  deletedAt?: string | null;
   createdAt: string;
 }
 

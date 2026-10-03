@@ -87,7 +87,7 @@ export default async function AdminLessonBuilderPage({
     quizResult = await db.select().from(dbQuizzes).where(eq(dbQuizzes.lessonId, lessonUuid));
   }
 
-  if (quizResult.length > 0) {
+  if (quizResult.length > 0 && !quizResult[0].deletedAt) {
     quiz = quizResult[0];
     const qs = await db
       .select()

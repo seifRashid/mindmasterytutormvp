@@ -22,10 +22,14 @@ import {
   RotateCcw,
   BookOpen,
   AlertCircle,
+  Download,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import type { Lesson, LessonAttachment, Quiz, Question, AttachmentType } from "@/lib/types";
 import { VideoPlayer } from "./VideoPlayer";
 import { updateLessonProgressAction } from "@/actions/student-actions";
+import { getMaterialViewUrl } from "@/lib/material-utils";
 
 type Tab = "notes" | "video" | "materials" | "quiz";
 
@@ -336,6 +340,7 @@ export function LessonViewer({
   const [materialsCompleted, setMaterialsCompleted] = useState(initialMaterialsCompleted);
   const [completed, setCompleted] = useState(initialCompleted);
   const [isSaving, setIsSaving] = useState(false);
+  const [previewingAttId, setPreviewingAttId] = useState<string | null>(null);
 
   const updateProgress = async (fields: {
     watchedDuration?: number;
@@ -480,38 +485,135 @@ export function LessonViewer({
 
       {/* ── MATERIALS ───────────────────────────────────────────────── */}
       {activeTab === "materials" && (
-        <div className="space-y-3">
+        <div className="space-y-4">
           {lesson.attachments && lesson.attachments.length > 0 ? (
             <>
               <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">
                 {lesson.attachments.length} Learning Material{lesson.attachments.length > 1 ? "s" : ""}
               </p>
-              {lesson.attachments.map((att) => {
-                const Icon = ATTACHMENT_ICONS[att.type];
-                return (
-                  <a
-                    key={att.id}
-                    href={att.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-4 p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm hover:border-blue-400 dark:hover:border-blue-600 hover:shadow-md transition-all group"
-                  >
-                    <div className={`p-3 rounded-xl ${ATTACHMENT_COLORS[att.type]} flex-shrink-0`}>
-                      <Icon className="w-5 h-5" />
+              <div className="space-y-3">
+                {lesson.attachments.map((att) => {
+                  const Icon = ATTACHMENT_ICONS[att.type] || File;
+                  const viewUrl = getMaterialViewUrl(att.url, att.name);
+                  const downloadUrl = `${viewUrl}${viewUrl.includes("?") ? "&" : "?"}download=true`;
+                  const isPdfOrImage =
+                    att.type === "pdf" ||
+                    att.type === "image" ||
+                    att.url.toLowerCase().includes(".pdf");
+                  const isPreviewing = previewingAttId === att.id;
+
+                  return (
+                    <div
+                      key={att.id}
+                      className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden transition-all"
+                    >
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4">
+                        <div className="flex items-center gap-3 min-w-0 flex-1">
+                          <div
+                            className={`p-3 rounded-xl ${
+                              ATTACHMENT_COLORS[att.type] || "bg-slate-100 dark:bg-slate-800 text-slate-600"
+                            } flex-shrink-0`}
+                          >
+                            <Icon className="w-5 h-5" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <a
+                              href={viewUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-sm font-bold text-slate-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors block truncate"
+                            >
+                              {att.name}
+                            </a>
+                            <p className="text-xs text-slate-400 font-mono truncate mt-0.5">{att.url}</p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 self-end sm:self-center flex-shrink-0">
+                          <span className="text-[10px] px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-bold uppercase">
+                            {att.type}
+                          </span>
+
+                          {isPdfOrImage && (
+                            <button
+                              type="button"
+                              onClick={() => setPreviewingAttId(isPreviewing ? null : att.id)}
+                              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                                isPreviewing
+                                  ? "bg-blue-600 text-white shadow-sm"
+                                  : "bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300"
+                              }`}
+                              title={isPreviewing ? "Close Preview" : "Preview inside lesson"}
+                            >
+                              {isPreviewing ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                              <span>{isPreviewing ? "Hide" : "Preview"}</span>
+                            </button>
+                          )}
+
+                          <a
+                            href={viewUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors"
+                            title="Open material in new tab"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" />
+                            <span>Open</span>
+                          </a>
+
+                          <a
+                            href={downloadUrl}
+                            download={att.name}
+                            className="p-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 hover:text-emerald-600 text-slate-600 dark:text-slate-400 transition-colors"
+                            title="Download material"
+                          >
+                            <Download className="w-4 h-4" />
+                          </a>
+                        </div>
+                      </div>
+
+                      {/* Embedded document previewer */}
+                      {isPreviewing && (
+                        <div className="border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60 p-3 sm:p-4">
+                          <div className="flex items-center justify-between pb-2.5 text-xs font-semibold text-slate-500">
+                            <span className="flex items-center gap-1.5">
+                              <Icon className="w-3.5 h-3.5" />
+                              Document Viewer: <strong className="text-slate-700 dark:text-slate-300">{att.name}</strong>
+                            </span>
+                            <a
+                              href={viewUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 font-bold"
+                            >
+                              Full Screen <ExternalLink className="w-3 h-3" />
+                            </a>
+                          </div>
+
+                          {att.type === "image" ? (
+                            <div className="flex justify-center p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
+                              <img
+                                src={viewUrl}
+                                alt={att.name}
+                                className="max-h-[550px] w-auto object-contain rounded-lg shadow-sm"
+                              />
+                            </div>
+                          ) : (
+                            <div className="rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-inner">
+                              <iframe
+                                src={viewUrl}
+                                className="w-full h-[600px] border-0"
+                                title={att.name}
+                              />
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold text-slate-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                        {att.name}
-                      </p>
-                      <p className="text-xs text-slate-400 font-mono truncate mt-0.5">{att.url}</p>
-                    </div>
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 font-semibold uppercase flex-shrink-0">
-                      {att.type}
-                    </span>
-                    <ExternalLink className="w-4 h-4 text-slate-400 group-hover:text-blue-500 transition-colors flex-shrink-0" />
-                  </a>
-                );
-              })}
+                  );
+                })}
+              </div>
+
               <div className="flex justify-end pt-3">
                 <button
                   onClick={handleToggleMaterialsComplete}

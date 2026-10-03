@@ -1,6 +1,5 @@
 import { Navbar } from "@/components/layout/Navbar";
 import { Sidebar } from "@/components/layout/Sidebar";
-import { DeleteQuizModal } from "@/components/admin/DeleteQuizModal";
 import { getSession } from "@/lib/auth";
 import { db } from "@/db";
 import {
@@ -8,29 +7,47 @@ import {
   questions as dbQuestions,
   topics as dbTopics,
   subjects as dbSubjects,
+  classes as dbClasses,
+  lessons as dbLessons,
 } from "@/db/schema";
 import {
   INITIAL_QUIZZES,
   INITIAL_QUESTIONS,
   INITIAL_TOPICS,
   INITIAL_SUBJECTS,
+  INITIAL_CLASSES,
 } from "@/lib/mock-data";
-import { HelpCircle, Plus, Edit2 } from "lucide-react";
+import { purgeExpiredRecycleBinQuizzes } from "@/actions/teacher-actions";
+import { HelpCircle, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
+import { QuizzesListManager } from "@/components/admin/QuizzesListManager";
 
-export default async function TeacherQuizzesPage() {
+export default async function TeacherQuizzesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ view?: string }>;
+}) {
   const session = await getSession();
+  const { view } = await searchParams;
+  const isRecycleBin = view === "recycle";
 
-  // 1. Fetch live quizzes, topics, subjects, and questions with fallback
+  // 1. Run automatic cleanup of expired recycle bin quizzes (deleted > 30 days ago)
+  await purgeExpiredRecycleBinQuizzes();
+
+  // 2. Fetch live records with fallback
   let quizzesList: any[] = [];
   let topicsList: any[] = [];
   let subjectsList: any[] = [];
+  let classesList: any[] = [];
+  let lessonsList: any[] = [];
   let questionsList: any[] = [];
 
   try {
     quizzesList = await db.select().from(dbQuizzes);
     topicsList = await db.select().from(dbTopics);
     subjectsList = await db.select().from(dbSubjects);
+    classesList = await db.select().from(dbClasses);
+    lessonsList = await db.select().from(dbLessons);
     questionsList = await db.select().from(dbQuestions);
   } catch (err) {
     console.warn("Database fetch failed in TeacherQuizzesPage, falling back to mock data:", err);
@@ -45,15 +62,17 @@ export default async function TeacherQuizzesPage() {
   if (subjectsList.length === 0) {
     subjectsList = INITIAL_SUBJECTS;
   }
+  if (classesList.length === 0) {
+    classesList = INITIAL_CLASSES;
+  }
   if (questionsList.length === 0) {
     questionsList = INITIAL_QUESTIONS;
   }
 
-  // Question count map
-  const questionCountMap: Record<string, number> = {};
-  for (const q of questionsList) {
-    questionCountMap[q.quizId] = (questionCountMap[q.quizId] || 0) + 1;
-  }
+  // Partition into active and recycle bin
+  const activeQuizzes = quizzesList.filter((q) => !q.deletedAt);
+  const recycleQuizzes = quizzesList.filter((q) => !!q.deletedAt);
+  const displayedQuizzes = isRecycleBin ? recycleQuizzes : activeQuizzes;
 
   return (
     <div className="min-h-screen bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-white flex flex-col">
@@ -63,7 +82,7 @@ export default async function TeacherQuizzesPage() {
         <Sidebar role="teacher" />
 
         <main className="flex-1 min-w-0 p-4 md:p-8 space-y-6 overflow-y-auto">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">
                 Teacher Management
@@ -71,97 +90,60 @@ export default async function TeacherQuizzesPage() {
               <h1 className="text-2xl font-extrabold text-slate-900 dark:text-white mt-0.5">
                 My Quizzes
               </h1>
+              <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                Manage your assessments, question banks, AI gradings, and recycled tests.
+              </p>
             </div>
 
-            {/* Dedicated Link for Teacher to Create Quiz */}
+            {view !== "recycle" && (
+              <Link
+                href="/teacher/quizzes/new"
+                className="px-4 py-2.5 text-xs font-bold rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white shadow-md shadow-indigo-500/20 flex items-center gap-2 transition-all cursor-pointer self-start sm:self-center select-none"
+              >
+                <Plus className="w-4 h-4" />
+                Create New Quiz
+              </Link>
+            )}
+          </div>
+
+          {/* View Toggles */}
+          <div className="flex border-b border-slate-200 dark:border-slate-800 gap-6 text-sm">
             <Link
-              href="/teacher/quizzes/new"
-              className="px-4 py-2 text-xs font-bold rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white shadow-md shadow-indigo-500/20 flex items-center gap-2 transition-all cursor-pointer"
+              href="/teacher/quizzes"
+              className={`pb-3 font-semibold transition-all border-b-2 flex items-center gap-2 ${
+                !isRecycleBin
+                  ? "border-indigo-600 text-indigo-600 dark:text-indigo-400"
+                  : "border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+              }`}
             >
-              <Plus className="w-4 h-4" />
-              Create New Quiz
+              <HelpCircle className="w-4 h-4" />
+              Active Quizzes ({activeQuizzes.length})
+            </Link>
+            <Link
+              href="/teacher/quizzes?view=recycle"
+              className={`pb-3 font-semibold transition-all border-b-2 flex items-center gap-2 ${
+                isRecycleBin
+                  ? "border-rose-600 text-rose-600 dark:text-rose-400"
+                  : "border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+              }`}
+            >
+              <Trash2 className="w-4 h-4" />
+              Recycle Bin ({recycleQuizzes.length})
             </Link>
           </div>
 
-          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 text-slate-500 font-bold uppercase">
-                <tr>
-                  <th className="p-4">Quiz Title</th>
-                  <th className="p-4">Topic</th>
-                  <th className="p-4">Passing Score</th>
-                  <th className="p-4">Questions</th>
-                  <th className="p-4 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {quizzesList.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className="p-8 text-center text-slate-500">
-                      <HelpCircle className="w-8 h-8 mx-auto mb-2 text-slate-400 opacity-60" />
-                      <p className="font-semibold text-slate-600 dark:text-slate-300">No quizzes created yet</p>
-                      <p className="text-[11px] text-slate-400 mt-0.5">
-                        Click &ldquo;Create New Quiz&rdquo; above to build and publish your first quiz.
-                      </p>
-                    </td>
-                  </tr>
-                ) : (
-                  quizzesList.map((quiz) => {
-                    const parentTopic = topicsList.find((t) => t.id === quiz.topicId);
-                    const parentSubject = parentTopic
-                      ? subjectsList.find((s) => s.id === parentTopic.subjectId)
-                      : null;
-                    const questionCount = questionCountMap[quiz.id] || 0;
-
-                    return (
-                      <tr
-                        key={quiz.id}
-                        className="hover:bg-slate-50 dark:hover:bg-slate-800/70 transition-colors duration-150 group"
-                      >
-                        <td className="p-4 font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                          <HelpCircle className="w-4 h-4 text-amber-500 flex-shrink-0" />
-                          <span>{quiz.title}</span>
-                          {questionsList.some((q) => q.quizId === quiz.id && q.aiGradingEnabled) && (
-                            <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300">
-                              AI Graded
-                            </span>
-                          )}
-                        </td>
-                        <td className="p-4 text-slate-600 dark:text-slate-300 font-medium">
-                          {parentTopic ? (
-                            <span>
-                              {parentTopic.title}{" "}
-                              {parentSubject && (
-                                <span className="text-[10px] text-slate-400">({parentSubject.title})</span>
-                              )}
-                            </span>
-                          ) : (
-                            <span className="text-slate-400 italic">No topic</span>
-                          )}
-                        </td>
-                        <td className="p-4 text-slate-600 dark:text-slate-300 font-bold">
-                          {quiz.passingScore}%
-                        </td>
-                        <td className="p-4 text-slate-600 dark:text-slate-300 font-mono">
-                          {questionCount} Qs
-                        </td>
-                        <td className="p-4 text-right flex items-center justify-end gap-1">
-                          <Link
-                            href={`/teacher/quizzes/${quiz.id}`}
-                            className="p-1.5 rounded-lg text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 inline-flex items-center justify-center transition-colors"
-                            title="Edit Quiz & Questions"
-                          >
-                            <Edit2 className="w-4 h-4" />
-                          </Link>
-                          <DeleteQuizModal quiz={{ id: quiz.id, title: quiz.title }} />
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
+          {/* Quizzes List Manager with Filters & Table */}
+          <QuizzesListManager
+            quizzes={displayedQuizzes}
+            questions={questionsList}
+            topics={topicsList}
+            subjects={subjectsList}
+            classes={classesList}
+            lessons={lessonsList}
+            isRecycleBin={isRecycleBin}
+            isAdmin={false}
+            currentUserId={session?.id}
+          />
         </main>
       </div>
     </div>

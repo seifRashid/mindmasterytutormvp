@@ -119,6 +119,7 @@ export default async function AdminLessonsPage({
             classes={classesList}
             isRecycleBin={isRecycleBin}
             isAdmin={true}
+            currentUserId={session?.id}
           />
         </main>
       </div>

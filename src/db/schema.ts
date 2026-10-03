@@ -132,6 +132,7 @@ export const lessons = pgTable(
     orderNumber: integer("order_number").default(1).notNull(),
     lessonQuizId: uuid("lesson_quiz_id"),       // FK set after quiz creation
     deletedAt: timestamp("deleted_at"),         // Null if active, set if in recycle bin
+    createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
     status: varchar("status", { length: 50 }).default("published").notNull(), // "published" or "draft"
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
@@ -171,6 +172,7 @@ export const quizzes = pgTable(
     passingScore: integer("passing_score").default(70).notNull(),
     timeLimitMinutes: integer("time_limit_minutes").default(0).notNull(), // 0 = no limit
     showFeedback: boolean("show_feedback").default(true).notNull(),
+    deletedAt: timestamp("deleted_at"), // Null if active, set if in recycle bin
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => ({
@@ -378,6 +380,7 @@ export const topicsRelations = relations(topics, ({ one, many }) => ({
 
 export const lessonsRelations = relations(lessons, ({ one, many }) => ({
   topic: one(topics, { fields: [lessons.topicId], references: [topics.id] }),
+  creator: one(users, { fields: [lessons.createdBy], references: [users.id] }),
   progress: many(lessonProgress),
   attachments: many(lessonAttachments),
   quiz: many(quizzes),

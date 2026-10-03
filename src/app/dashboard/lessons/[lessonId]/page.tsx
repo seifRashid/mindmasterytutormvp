@@ -1,10 +1,11 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, Lock, BookOpen } from "lucide-react";
 import { Navbar } from "@/components/layout/Navbar";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { LessonViewer } from "@/components/student/LessonViewer";
 import { getSession } from "@/lib/auth";
+import { findUserById } from "@/lib/user-store";
 import { db } from "@/db";
 import {
   lessonProgress,
@@ -26,12 +27,23 @@ export default async function LessonPage({
   params: Promise<{ lessonId: string }>;
 }) {
   const session = await getSession();
+  if (!session) {
+    redirect("/login");
+  }
+
+  const currentUser = await findUserById(session.id);
+  const status = currentUser?.status || session?.status || "approved";
+
+  if (!currentUser || status === "pending" || status === "rejected") {
+    redirect("/pending-approval");
+  }
+
   const { lessonId } = await params;
-
-  const userUuid = session ? toUuid(session.id) : null;
+  const userUuid = toUuid(currentUser.id);
   const lessonUuid = toUuid(lessonId);
+  const isStudent = currentUser.role === "student";
 
-  // Fetch lesson details from database
+  // 1. Fetch lesson details from database
   const lessonResult = await db
     .select()
     .from(dbLessons)
@@ -42,10 +54,85 @@ export default async function LessonPage({
         eq(dbLessons.status, "published")
       )
     );
-  if (lessonResult.length === 0) notFound();
+
+  if (lessonResult.length === 0) {
+    notFound();
+  }
   const lesson = lessonResult[0];
 
-  // Fetch lesson attachments from database
+  // 2. Fetch Topic, Subject, and Class hierarchy
+  let topic = null;
+  let subject = null;
+  let classLevel = null;
+
+  if (lesson.topicId) {
+    const topicResult = await db
+      .select()
+      .from(dbTopics)
+      .where(eq(dbTopics.id, lesson.topicId));
+
+    if (topicResult.length > 0) {
+      topic = topicResult[0];
+      if (topic.subjectId) {
+        const subjectResult = await db
+          .select()
+          .from(dbSubjects)
+          .where(eq(dbSubjects.id, topic.subjectId));
+
+        if (subjectResult.length > 0) {
+          subject = subjectResult[0];
+          if (subject.classId) {
+            const classResult = await db
+              .select()
+              .from(dbClasses)
+              .where(eq(dbClasses.id, subject.classId));
+
+            if (classResult.length > 0) {
+              classLevel = classResult[0];
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // 3. Enforce Server-Side Class Authorization
+  const studentClassUuid = currentUser.classId ? toUuid(currentUser.classId) : null;
+  const isAuthorized = !isStudent || !studentClassUuid || !subject?.classId || studentClassUuid === subject.classId;
+
+  if (!isAuthorized) {
+    return (
+      <div className="min-h-screen bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-white flex flex-col">
+        <Navbar user={session} />
+        <div className="flex-1 flex max-w-7xl w-full mx-auto overflow-x-hidden">
+          <Sidebar role="student" />
+          <main className="flex-1 min-w-0 p-4 md:p-8 space-y-6 flex items-center justify-center">
+            <div className="max-w-md w-full p-8 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl text-center space-y-4">
+              <div className="w-14 h-14 rounded-2xl bg-amber-100 dark:bg-amber-950/60 text-amber-600 flex items-center justify-center mx-auto">
+                <Lock className="w-7 h-7" />
+              </div>
+              <h2 className="text-xl font-bold text-slate-900 dark:text-white">
+                Restricted Lesson
+              </h2>
+              <p className="text-xs text-slate-500 leading-relaxed">
+                This lesson belongs to <strong>{classLevel?.name || "another class"}</strong> and is not available to your enrolled class.
+              </p>
+              <div className="pt-2">
+                <Link
+                  href="/dashboard/subjects"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md transition-all"
+                >
+                  Return to Your Subjects
+                </Link>
+              </div>
+            </div>
+          </main>
+        </div>
+      </div>
+    );
+  }
+
+  // 4. Fetch lesson attachments from database
   const attachmentsList = await db
     .select()
     .from(dbAttachments)
@@ -64,12 +151,18 @@ export default async function LessonPage({
     })),
   };
 
+  // 5. Fetch lesson progress for student
   let progressRecord = null;
   if (userUuid) {
     const records = await db
       .select()
       .from(lessonProgress)
-      .where(and(eq(lessonProgress.userId, userUuid), eq(lessonProgress.lessonId, lessonUuid)));
+      .where(
+        and(
+          eq(lessonProgress.userId, userUuid),
+          eq(lessonProgress.lessonId, lessonUuid)
+        )
+      );
     if (records.length > 0) {
       progressRecord = records[0];
     }
@@ -81,39 +174,32 @@ export default async function LessonPage({
   const initialVideoCompleted = progressRecord?.videoCompleted ?? false;
   const initialMaterialsCompleted = progressRecord?.materialsCompleted ?? false;
 
-  // Fetch topic, subject, and class level from DB
-  let topic = null;
-  let subject = null;
-  let classLevel = null;
-  if (lesson.topicId) {
-    const topicResult = await db.select().from(dbTopics).where(eq(dbTopics.id, lesson.topicId));
-    if (topicResult.length > 0) {
-      topic = topicResult[0];
-      if (topic.subjectId) {
-        const subjectResult = await db.select().from(dbSubjects).where(eq(dbSubjects.id, topic.subjectId));
-        if (subjectResult.length > 0) {
-          subject = subjectResult[0];
-          if (subject.classId) {
-            const classResult = await db.select().from(dbClasses).where(eq(dbClasses.id, subject.classId));
-            if (classResult.length > 0) {
-              classLevel = classResult[0];
-            }
-          }
-        }
-      }
-    }
-  }
-
-  // Fetch lesson-level inline quiz
+  // 6. Fetch lesson-level inline quiz
   let lessonQuiz = null;
   let lessonQuizQuestions: any[] = [];
   let quizResult = lesson.lessonQuizId
-    ? await db.select().from(dbQuizzes).where(eq(dbQuizzes.id, lesson.lessonQuizId))
+    ? await db
+        .select()
+        .from(dbQuizzes)
+        .where(
+          and(
+            eq(dbQuizzes.id, lesson.lessonQuizId),
+            isNull(dbQuizzes.deletedAt)
+          )
+        )
     : [];
 
   // Fallback: check if quiz was linked via lessonId
   if (quizResult.length === 0) {
-    quizResult = await db.select().from(dbQuizzes).where(eq(dbQuizzes.lessonId, lessonUuid));
+    quizResult = await db
+      .select()
+      .from(dbQuizzes)
+      .where(
+        and(
+          eq(dbQuizzes.lessonId, lessonUuid),
+          isNull(dbQuizzes.deletedAt)
+        )
+      );
   }
 
   if (quizResult.length > 0) {
@@ -138,27 +224,38 @@ export default async function LessonPage({
     }
   }
 
-
-  // Topic-level quiz (for navigation link at the end)
+  // 7. Topic-level quiz (for navigation link at the end)
   let topicQuiz = null;
   if (topic) {
     const topicQuizResult = await db
       .select()
       .from(dbQuizzes)
-      .where(and(eq(dbQuizzes.topicId, topic.id), isNull(dbQuizzes.lessonId)));
+      .where(
+        and(
+          eq(dbQuizzes.topicId, topic.id),
+          isNull(dbQuizzes.lessonId),
+          isNull(dbQuizzes.deletedAt)
+        )
+      );
     if (topicQuizResult.length > 0) {
       topicQuiz = topicQuizResult[0];
     }
   }
 
-  // Sibling lessons for prev/next
+  // 8. Sibling lessons for prev/next (only active published lessons)
   let prevLesson = null;
   let nextLesson = null;
   if (topic) {
     const topicLessons = await db
-      .select()
+      .select({ id: dbLessons.id, title: dbLessons.title, orderNumber: dbLessons.orderNumber })
       .from(dbLessons)
-      .where(and(eq(dbLessons.topicId, topic.id), isNull(dbLessons.deletedAt)))
+      .where(
+        and(
+          eq(dbLessons.topicId, topic.id),
+          isNull(dbLessons.deletedAt),
+          eq(dbLessons.status, "published")
+        )
+      )
       .orderBy(dbLessons.orderNumber);
 
     const currentIndex = topicLessons.findIndex((l) => l.id === lesson.id);
@@ -184,7 +281,10 @@ export default async function LessonPage({
             )}
             {subject && (
               <>
-                <Link href={`/dashboard/subjects/${subject.slug}`} className="hover:text-blue-600 transition-colors">
+                <Link
+                  href={`/dashboard/subjects/${subject.slug}`}
+                  className="hover:text-blue-600 transition-colors"
+                >
                   {subject.title}
                 </Link>
                 <ChevronRight className="w-3 h-3" />
@@ -207,11 +307,13 @@ export default async function LessonPage({
               {lesson.title}
             </h1>
             {lesson.description && (
-              <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">{lesson.description}</p>
+              <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                {lesson.description}
+              </p>
             )}
           </div>
 
-          {/* 4-tab lesson viewer */}
+          {/* 4-tab interactive lesson viewer */}
           <LessonViewer
             lesson={fullLesson as any}
             quiz={lessonQuiz as any}

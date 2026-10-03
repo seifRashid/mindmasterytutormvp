@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { getSession } from "@/lib/auth";
+import { findUserById } from "@/lib/user-store";
 import { db } from "@/db";
 import {
   lessonProgress as dbProgress,
@@ -12,7 +13,7 @@ import {
   lessons as dbLessons,
   lessonAttachments as dbAttachments,
 } from "@/db/schema";
-import { eq, and, inArray } from "drizzle-orm";
+import { eq, and, inArray, isNull } from "drizzle-orm";
 import { toUuid } from "@/lib/id-mapper";
 import {
   INITIAL_QUIZZES,
@@ -31,19 +32,33 @@ export async function updateLessonProgressAction(
   }
 ) {
   const session = await getSession();
-  const userId = session ? session.id : "user-student-1";
+  if (!session) {
+    return { success: false, error: "Unauthorized: Please log in." };
+  }
 
-  const userUuid = toUuid(userId);
+  const currentUser = await findUserById(session.id);
+  if (!currentUser || currentUser.status === "pending" || currentUser.status === "rejected") {
+    return { success: false, error: "Unauthorized: Account pending approval." };
+  }
+
+  const userUuid = toUuid(session.id);
   const lessonUuid = toUuid(lessonId);
 
   try {
+    // Fetch lesson details to know what contents it has and verify it exists & is active
+    const [lesson] = await db
+      .select()
+      .from(dbLessons)
+      .where(and(eq(dbLessons.id, lessonUuid), isNull(dbLessons.deletedAt)));
+
+    if (!lesson) {
+      return { success: false, error: "Lesson not found or unavailable." };
+    }
+
     const existing = await db
       .select()
       .from(dbProgress)
       .where(and(eq(dbProgress.userId, userUuid), eq(dbProgress.lessonId, lessonUuid)));
-    
-    // Fetch lesson details to know what contents it has
-    const [lesson] = await db.select().from(dbLessons).where(eq(dbLessons.id, lessonUuid));
     const hasVideo = !!lesson?.videoUrl;
     const hasNotes = !!lesson?.richContent;
     
@@ -113,6 +128,7 @@ export async function updateLessonProgressAction(
   revalidatePath("/dashboard");
   revalidatePath(`/dashboard/lessons/${lessonId}`);
   revalidatePath("/dashboard/progress");
+  revalidatePath("/dashboard/subjects");
 
   // Fetch updated progress for client response
   try {
@@ -141,9 +157,16 @@ export async function submitQuizAttemptAction(
   clientSubmissionToken?: string // optional idempotency token
 ) {
   const session = await getSession();
-  const userId = session ? session.id : "user-student-1";
+  if (!session) {
+    return { error: "Unauthorized: Please log in." };
+  }
 
-  const userUuid = toUuid(userId);
+  const currentUser = await findUserById(session.id);
+  if (!currentUser || currentUser.status === "pending" || currentUser.status === "rejected") {
+    return { error: "Unauthorized: Account pending approval." };
+  }
+
+  const userUuid = toUuid(session.id);
   const quizUuid = toUuid(quizId);
 
   // 1. Fetch Quiz and Questions from DB with fallback
@@ -153,7 +176,7 @@ export async function submitQuizAttemptAction(
     const quizResult = await db
       .select()
       .from(dbQuizzes)
-      .where(eq(dbQuizzes.id, quizUuid));
+      .where(and(eq(dbQuizzes.id, quizUuid), isNull(dbQuizzes.deletedAt)));
 
     if (quizResult.length > 0) {
       quiz = quizResult[0];
@@ -625,8 +648,10 @@ export async function submitQuizAttemptAction(
   const showExplanations = newFailedAttempts >= 3;
 
   revalidatePath(`/dashboard/quizzes/${quizId}`);
+  revalidatePath("/dashboard/quizzes");
   revalidatePath("/dashboard/progress");
   revalidatePath("/dashboard");
+  revalidatePath("/dashboard/subjects");
   revalidatePath("/teacher/grading");
 
   return {

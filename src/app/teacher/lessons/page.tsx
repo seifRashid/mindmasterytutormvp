@@ -118,6 +118,8 @@ export default async function TeacherLessonsPage({
             subjects={subjectsList}
             classes={classesList}
             isRecycleBin={isRecycleBin}
+            isAdmin={false}
+            currentUserId={session?.id}
           />
         </main>
       </div>

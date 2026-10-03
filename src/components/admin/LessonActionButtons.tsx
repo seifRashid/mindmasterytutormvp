@@ -23,28 +23,43 @@ export function LessonActionButtons({
 }: LessonActionButtonsProps) {
   const [showModal, setShowModal] = useState(false);
   const [isPending, setIsPending] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const colorClass = isAdmin ? "bg-blue-600 hover:bg-blue-700" : "bg-indigo-600 hover:bg-indigo-700";
   const textClass = isAdmin ? "text-blue-600 hover:bg-blue-50" : "text-indigo-600 hover:bg-indigo-50";
 
   const handleSoftDelete = async () => {
     setIsPending(true);
-    await softDeleteLessonAction(lessonId);
+    setErrorMsg(null);
+    const res = await softDeleteLessonAction(lessonId);
     setIsPending(false);
-    setShowModal(false);
+    if (res && (res as any).error) {
+      setErrorMsg((res as any).error);
+    } else {
+      setShowModal(false);
+    }
   };
 
   const handleRestore = async () => {
     setIsPending(true);
-    await restoreLessonAction(lessonId);
+    setErrorMsg(null);
+    const res = await restoreLessonAction(lessonId);
     setIsPending(false);
+    if (res && (res as any).error) {
+      alert((res as any).error);
+    }
   };
 
   const handlePermanentDelete = async () => {
     setIsPending(true);
-    await permanentlyDeleteLessonAction(lessonId);
+    setErrorMsg(null);
+    const res = await permanentlyDeleteLessonAction(lessonId);
     setIsPending(false);
-    setShowModal(false);
+    if (res && (res as any).error) {
+      setErrorMsg((res as any).error);
+    } else {
+      setShowModal(false);
+    }
   };
 
   if (mode === "active") {
@@ -81,6 +96,11 @@ export function LessonActionButtons({
               </div>
 
               <div className="space-y-3 text-sm text-slate-600 dark:text-slate-400">
+                {errorMsg && (
+                  <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 text-xs font-semibold">
+                    {errorMsg}
+                  </div>
+                )}
                 <p>
                   Are you sure you want to delete <strong className="text-slate-900 dark:text-white font-bold">&ldquo;{lessonTitle}&rdquo;</strong>?
                 </p>
@@ -157,6 +177,11 @@ export function LessonActionButtons({
             </div>
 
             <div className="space-y-3 text-sm text-slate-600 dark:text-slate-400">
+              {errorMsg && (
+                <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 text-xs font-semibold">
+                  {errorMsg}
+                </div>
+              )}
               <p>
                 Are you sure you want to permanently delete <strong className="text-slate-900 dark:text-white font-bold">&ldquo;{lessonTitle}&rdquo;</strong>?
               </p>
