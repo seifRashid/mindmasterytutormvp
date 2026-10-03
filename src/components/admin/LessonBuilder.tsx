@@ -2,8 +2,9 @@
 
 import dynamic from "next/dynamic";
 import { useState, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { upsertLessonAction } from "@/actions/teacher-actions";
+import { formatVideoEmbedUrl } from "@/lib/video-utils";
 import {
   FileText,
   Video,
@@ -265,6 +266,8 @@ function QuestionCard({
 }
 
 export function LessonBuilder({ lesson, quiz, questions: initialQuestions, topics }: LessonBuilderProps) {
+  const router = useRouter();
+  const pathname = usePathname();
   const [activeTab, setActiveTab] = useState<Tab>("content");
   const [saved, setSaved] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -280,8 +283,16 @@ export function LessonBuilder({ lesson, quiz, questions: initialQuestions, topic
   const [videoUrl, setVideoUrl] = useState(lesson.videoUrl ?? "");
   const [duration, setDuration] = useState(String(Math.floor(lesson.duration / 60)));
 
-  // Materials tab state
-  const [attachments, setAttachments] = useState<LessonAttachment[]>(lesson.attachments ?? []);
+  // Materials tab state — normalized to handle both type and fileType from DB
+  const initialAttachments: LessonAttachment[] = (lesson.attachments ?? []).map((a: any, idx: number) => ({
+    id: a.id || `att-${Date.now()}-${idx}`,
+    lessonId: a.lessonId || lesson.id,
+    name: a.name,
+    url: a.url,
+    type: a.type || a.fileType || "pdf",
+    orderNumber: a.orderNumber ?? idx + 1,
+  }));
+  const [attachments, setAttachments] = useState<LessonAttachment[]>(initialAttachments);
   const [newAttName, setNewAttName] = useState("");
   const [newAttUrl, setNewAttUrl] = useState("");
   const [newAttType, setNewAttType] = useState<AttachmentType>("pdf");
@@ -334,8 +345,10 @@ export function LessonBuilder({ lesson, quiz, questions: initialQuestions, topic
     }
   };
 
-  // Quiz tab state
-  const [hasQuiz, setHasQuiz] = useState(!!lesson.lessonQuizId);
+  // Quiz tab state — automatically active if quiz or questions are present
+  const [hasQuiz, setHasQuiz] = useState(
+    !!lesson.lessonQuizId || !!quiz?.id || ((initialQuestions?.length ?? 0) > 0)
+  );
   const [quizTitle, setQuizTitle] = useState(quiz?.title ?? `Quick Check: ${lesson.title}`);
   const [passingScore, setPassingScore] = useState(quiz?.passingScore ?? 60);
   const [timeLimit, setTimeLimit] = useState(quiz?.timeLimitMinutes ?? 5);
@@ -349,8 +362,8 @@ export function LessonBuilder({ lesson, quiz, questions: initialQuestions, topic
       {
         id: `att-new-${Date.now()}`,
         lessonId: lesson.id,
-        name: newAttName,
-        url: newAttUrl,
+        name: newAttName.trim(),
+        url: newAttUrl.trim(),
         type: newAttType,
         orderNumber: prev.length + 1,
       },
@@ -365,6 +378,7 @@ export function LessonBuilder({ lesson, quiz, questions: initialQuestions, topic
   };
 
   const addQuestion = (type: QuestionType) => {
+    setHasQuiz(true); // Automatically enable quiz when question is added
     const id = `q-new-${Date.now()}`;
     let answers: Answer[] = [];
     if (type === "true_false") {
@@ -398,32 +412,35 @@ export function LessonBuilder({ lesson, quiz, questions: initialQuestions, topic
   const handleSave = useCallback(async () => {
     setIsSaving(true);
     try {
+      const normalizedVideo = formatVideoEmbedUrl(videoUrl);
+      const shouldSaveQuiz = hasQuiz || quizQuestions.length > 0;
+
       const result = await upsertLessonAction(lesson.id, {
         topicId,
         title,
         description,
         richContent,
-        videoUrl,
+        videoUrl: normalizedVideo,
         duration: Number(duration) * 60 || 0,
         status,
-        attachments: attachments.map((a) => ({
+        attachments: attachments.map((a, idx) => ({
           name: a.name,
           url: a.url,
-          type: a.type,
-          orderNumber: a.orderNumber,
+          type: a.type || (a as any).fileType || "pdf",
+          orderNumber: a.orderNumber || idx + 1,
         })),
-        quiz: hasQuiz
+        quiz: shouldSaveQuiz
           ? {
-              title: quizTitle,
+              title: quizTitle || `Quick Check: ${title}`,
               passingScore,
               timeLimitMinutes: timeLimit,
               showFeedback,
-              questions: quizQuestions.map((q) => ({
+              questions: quizQuestions.map((q, idx) => ({
                 id: q.id,
                 type: q.type,
-                question: q.question,
-                explanation: q.explanation,
-                orderNumber: q.orderNumber,
+                question: q.question || `Question ${idx + 1}`,
+                explanation: q.explanation || "",
+                orderNumber: q.orderNumber || idx + 1,
                 answers: q.answers.map((a) => ({
                   answer: a.answer,
                   isCorrect: a.isCorrect,
@@ -436,6 +453,11 @@ export function LessonBuilder({ lesson, quiz, questions: initialQuestions, topic
       if (result.success) {
         setSaved(true);
         setTimeout(() => setSaved(false), 2000);
+        // If creating a new lesson, navigate seamlessly to the persistent edit URL
+        if (pathname && pathname.endsWith("/new")) {
+          const editPath = pathname.replace(/\/new$/, `/${lesson.id}`);
+          router.replace(editPath);
+        }
       } else {
         alert(result.error || "Failed to save lesson");
       }
@@ -461,13 +483,15 @@ export function LessonBuilder({ lesson, quiz, questions: initialQuestions, topic
     timeLimit,
     showFeedback,
     quizQuestions,
+    pathname,
+    router,
   ]);
 
-  const TABS: { key: Tab; label: string; icon: React.ElementType }[] = [
-    { key: "content", label: "📖 Notes", icon: FileText },
-    { key: "video", label: "🎬 Video", icon: Video },
-    { key: "materials", label: "📎 Materials", icon: Paperclip },
-    { key: "quiz", label: "✏️ Quiz", icon: HelpCircle },
+  const TABS: { key: Tab; label: string; icon: React.ElementType; hasContent?: boolean }[] = [
+    { key: "content", label: "📖 Notes", icon: FileText, hasContent: !!richContent?.trim() },
+    { key: "video", label: "🎬 Video", icon: Video, hasContent: !!videoUrl?.trim() },
+    { key: "materials", label: "📎 Materials", icon: Paperclip, hasContent: attachments.length > 0 },
+    { key: "quiz", label: "✏️ Quiz", icon: HelpCircle, hasContent: hasQuiz || quizQuestions.length > 0 },
   ];
 
   return (
@@ -525,7 +549,7 @@ export function LessonBuilder({ lesson, quiz, questions: initialQuestions, topic
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
-            className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+            className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all relative ${
               activeTab === tab.key
                 ? "bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-sm"
                 : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
@@ -533,6 +557,13 @@ export function LessonBuilder({ lesson, quiz, questions: initialQuestions, topic
           >
             <span className="hidden sm:inline">{tab.label}</span>
             <span className="sm:hidden">{tab.label.split(" ")[0]}</span>
+            {tab.hasContent && (
+              <span
+                className={`w-1.5 h-1.5 rounded-full ${
+                  activeTab === tab.key ? "bg-blue-600" : "bg-slate-400 dark:bg-slate-500"
+                }`}
+              />
+            )}
           </button>
         ))}
       </div>
@@ -612,12 +643,17 @@ export function LessonBuilder({ lesson, quiz, questions: initialQuestions, topic
               <input
                 value={videoUrl}
                 onChange={(e) => setVideoUrl(e.target.value)}
-                placeholder="https://www.youtube.com/embed/VIDEO_ID"
+                onBlur={() => {
+                  const formatted = formatVideoEmbedUrl(videoUrl);
+                  if (formatted && formatted !== videoUrl) {
+                    setVideoUrl(formatted);
+                  }
+                }}
+                placeholder="Paste YouTube or Vimeo URL (e.g. https://www.youtube.com/watch?v=...)"
                 className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
               <p className="text-xs text-slate-400 mt-1">
-                YouTube: use <code className="bg-slate-100 dark:bg-slate-800 px-1 rounded">/embed/VIDEO_ID</code> format.
-                Works with YouTube, Vimeo, and other embeddable video platforms.
+                Supports YouTube (watch, share, shorts, embed) and Vimeo links. Automatically converted to an embed player.
               </p>
             </div>
 
@@ -641,7 +677,7 @@ export function LessonBuilder({ lesson, quiz, questions: initialQuestions, topic
               <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Live Preview</p>
               <div className="rounded-2xl overflow-hidden bg-slate-950 border border-slate-800 shadow-2xl aspect-video">
                 <iframe
-                  src={videoUrl}
+                  src={formatVideoEmbedUrl(videoUrl)}
                   title="Video preview"
                   className="w-full h-full"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -876,9 +912,18 @@ export function LessonBuilder({ lesson, quiz, questions: initialQuestions, topic
             )}
 
             {!hasQuiz && (
-              <p className="text-sm text-slate-400 text-center py-4">
-                Enable the quiz to add questions and assess students after this lesson.
-              </p>
+              <div className="text-center py-6 space-y-3">
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  Enable the quiz to add questions and assess students after this lesson.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setHasQuiz(true)}
+                  className="px-4 py-2 text-xs font-bold rounded-xl bg-blue-600 hover:bg-blue-700 text-white shadow-sm transition-all cursor-pointer"
+                >
+                  Enable Quiz for this Lesson
+                </button>
+              </div>
             )}
           </div>
 

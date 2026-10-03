@@ -82,6 +82,8 @@ export async function permanentlyDeleteLessonAction(lessonId: string) {
   }
 }
 
+import { formatVideoEmbedUrl } from "@/lib/video-utils";
+
 /**
  * Creates or updates a lesson, including its status, attachments, and inline quizzes.
  */
@@ -115,14 +117,21 @@ export async function upsertLessonAction(
   try {
     const lessonUuid = toUuid(lessonId);
     const topicUuid = toUuid(data.topicId);
+    const formattedVideo = formatVideoEmbedUrl(data.videoUrl);
 
     // 1. Check if lesson exists
     const existing = await db.select().from(dbLessons).where(eq(dbLessons.id, lessonUuid));
 
     // Determine the lessonQuizId
     let lessonQuizId: string | null = null;
-    if (existing.length > 0) {
+    if (existing.length > 0 && existing[0].lessonQuizId) {
       lessonQuizId = existing[0].lessonQuizId;
+    } else {
+      // Check if a quiz exists referencing this lesson
+      const existingQuiz = await db.select().from(quizzes).where(eq(quizzes.lessonId, lessonUuid));
+      if (existingQuiz.length > 0) {
+        lessonQuizId = existingQuiz[0].id;
+      }
     }
 
     // 2. Sync Quiz if enabled
@@ -132,10 +141,12 @@ export async function upsertLessonAction(
         const [newQuiz] = await db
           .insert(quizzes)
           .values({
-            title: data.quiz.title,
-            passingScore: data.quiz.passingScore,
-            timeLimitMinutes: data.quiz.timeLimitMinutes,
-            showFeedback: data.quiz.showFeedback,
+            lessonId: lessonUuid,
+            topicId: topicUuid,
+            title: data.quiz.title || `Quick Check: ${data.title}`,
+            passingScore: data.quiz.passingScore ?? 70,
+            timeLimitMinutes: data.quiz.timeLimitMinutes ?? 0,
+            showFeedback: data.quiz.showFeedback ?? true,
           })
           .returning();
         lessonQuizId = newQuiz.id;
@@ -144,10 +155,12 @@ export async function upsertLessonAction(
         await db
           .update(quizzes)
           .set({
-            title: data.quiz.title,
-            passingScore: data.quiz.passingScore,
-            timeLimitMinutes: data.quiz.timeLimitMinutes,
-            showFeedback: data.quiz.showFeedback,
+            lessonId: lessonUuid,
+            topicId: topicUuid,
+            title: data.quiz.title || `Quick Check: ${data.title}`,
+            passingScore: data.quiz.passingScore ?? 70,
+            timeLimitMinutes: data.quiz.timeLimitMinutes ?? 0,
+            showFeedback: data.quiz.showFeedback ?? true,
           })
           .where(eq(quizzes.id, lessonQuizId));
       }
@@ -161,30 +174,33 @@ export async function upsertLessonAction(
       }
 
       // Insert new questions and their answers
-      for (const q of data.quiz.questions) {
-        const [insertedQuestion] = await db
-          .insert(questions)
-          .values({
-            quizId: lessonQuizId,
-            type: q.type,
-            question: q.question,
-            explanation: q.explanation || "",
-            orderNumber: q.orderNumber,
-          })
-          .returning();
+      if (data.quiz.questions && data.quiz.questions.length > 0) {
+        for (let i = 0; i < data.quiz.questions.length; i++) {
+          const q = data.quiz.questions[i];
+          const [insertedQuestion] = await db
+            .insert(questions)
+            .values({
+              quizId: lessonQuizId,
+              type: q.type,
+              question: q.question || `Question ${i + 1}`,
+              explanation: q.explanation || "",
+              orderNumber: q.orderNumber || i + 1,
+            })
+            .returning();
 
-        if (q.answers && q.answers.length > 0) {
-          await db.insert(answers).values(
-            q.answers.map((a) => ({
-              questionId: insertedQuestion.id,
-              answer: a.answer,
-              isCorrect: a.isCorrect,
-            }))
-          );
+          if (q.answers && q.answers.length > 0) {
+            await db.insert(answers).values(
+              q.answers.map((a) => ({
+                questionId: insertedQuestion.id,
+                answer: a.answer,
+                isCorrect: a.isCorrect,
+              }))
+            );
+          }
         }
       }
     } else {
-      // If quiz was disabled/removed, disassociate it
+      // If quiz was explicitly disabled/removed, disassociate it
       lessonQuizId = null;
     }
 
@@ -197,7 +213,7 @@ export async function upsertLessonAction(
           title: data.title,
           description: data.description,
           richContent: data.richContent,
-          videoUrl: data.videoUrl || null,
+          videoUrl: formattedVideo || null,
           duration: data.duration,
           status: data.status,
           lessonQuizId: lessonQuizId,
@@ -210,7 +226,7 @@ export async function upsertLessonAction(
         title: data.title,
         description: data.description,
         richContent: data.richContent,
-        videoUrl: data.videoUrl || null,
+        videoUrl: formattedVideo || null,
         duration: data.duration,
         status: data.status,
         lessonQuizId: lessonQuizId,
@@ -218,25 +234,35 @@ export async function upsertLessonAction(
     }
 
     // 4. Sync Attachments: Delete old attachments and insert new ones
+    // Note: Column in lessonAttachments is 'fileType', not 'type'
     await db.delete(lessonAttachments).where(eq(lessonAttachments.lessonId, lessonUuid));
     if (data.attachments && data.attachments.length > 0) {
       await db.insert(lessonAttachments).values(
-        data.attachments.map((att) => ({
+        data.attachments.map((att, idx) => ({
           lessonId: lessonUuid,
           name: att.name,
           url: att.url,
-          type: att.type,
-          orderNumber: att.orderNumber,
+          fileType: (att.type as any) || "other",
+          orderNumber: att.orderNumber || idx + 1,
         }))
       );
     }
 
+    // 5. Revalidate all cached views
     revalidatePath("/teacher/lessons");
     revalidatePath("/admin/lessons");
+    revalidatePath(`/teacher/lessons/${lessonId}`);
+    revalidatePath(`/teacher/lessons/${lessonUuid}`);
+    revalidatePath(`/admin/lessons/${lessonId}`);
+    revalidatePath(`/admin/lessons/${lessonUuid}`);
+    revalidatePath(`/dashboard/lessons/${lessonId}`);
+    revalidatePath(`/dashboard/lessons/${lessonUuid}`);
     revalidatePath("/dashboard");
-    return { success: true };
+
+    return { success: true, lessonId: lessonUuid };
   } catch (err: any) {
     console.error("Failed to upsert lesson:", err);
     return { success: false, error: err.message || "Failed to save lesson content." };
   }
 }
+

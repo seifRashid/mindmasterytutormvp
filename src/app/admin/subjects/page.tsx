@@ -1,10 +1,8 @@
 import { Navbar } from "@/components/layout/Navbar";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { CrudModal } from "@/components/admin/CrudModal";
-import { EditSubjectModal } from "@/components/admin/EditSubjectModal";
-import { DeleteSubjectModal } from "@/components/admin/DeleteSubjectModal";
+import { SubjectsListManager } from "@/components/admin/SubjectsListManager";
 import { getSession } from "@/lib/auth";
-import { BookOpen } from "lucide-react";
 import { db } from "@/db";
 import { classes as dbClasses, subjects as dbSubjects } from "@/db/schema";
 import { desc } from "drizzle-orm";
@@ -52,51 +50,13 @@ export default async function AdminSubjectsPage() {
             />
           </div>
 
-          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 text-slate-500 font-bold uppercase">
-                <tr>
-                  <th className="p-4">Subject Title</th>
-                  <th className="p-4">Class Level</th>
-                  <th className="p-4">Description</th>
-                  <th className="p-4 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {subjectsList.map((sub) => {
-                  const parentClass = classesList.find((c) => c.id === sub.classId);
-                  return (
-                    <tr
-                      key={sub.id}
-                      className="hover:bg-slate-50 dark:hover:bg-slate-800/70 transition-colors duration-150 group"
-                    >
-                      <td className="p-4 font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                        <BookOpen className="w-4 h-4 text-indigo-500 flex-shrink-0" />
-                        <span>{sub.title}</span>
-                      </td>
-                      <td className="p-4 text-slate-600 dark:text-slate-300 font-medium">{parentClass?.name || "Grade 8"}</td>
-                      <td className="p-4 text-slate-600 dark:text-slate-300 max-w-xs truncate">{sub.description}</td>
-                      <td className="p-4 text-right flex items-center justify-end gap-1">
-                        <EditSubjectModal
-                          subject={{
-                            id: sub.id,
-                            classId: sub.classId,
-                            title: sub.title,
-                            description: sub.description || "",
-                            icon: sub.icon,
-                          }}
-                          classes={classesList}
-                        />
-                        <DeleteSubjectModal subject={sub} />
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          <SubjectsListManager
+            subjects={subjectsList}
+            classes={classesList}
+          />
         </main>
       </div>
     </div>
   );
 }
+

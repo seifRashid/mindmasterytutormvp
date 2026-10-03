@@ -9,6 +9,7 @@ import { db } from "@/db";
 import {
   lessonProgress,
   lessons as dbLessons,
+  lessonAttachments as dbAttachments,
   topics as dbTopics,
   subjects as dbSubjects,
   classes as dbClasses,
@@ -43,6 +44,25 @@ export default async function LessonPage({
     );
   if (lessonResult.length === 0) notFound();
   const lesson = lessonResult[0];
+
+  // Fetch lesson attachments from database
+  const attachmentsList = await db
+    .select()
+    .from(dbAttachments)
+    .where(eq(dbAttachments.lessonId, lessonUuid))
+    .orderBy(dbAttachments.orderNumber);
+
+  const fullLesson = {
+    ...lesson,
+    attachments: attachmentsList.map((a) => ({
+      id: a.id,
+      lessonId: a.lessonId,
+      name: a.name,
+      url: a.url,
+      type: a.fileType,
+      orderNumber: a.orderNumber,
+    })),
+  };
 
   let progressRecord = null;
   if (userUuid) {
@@ -87,30 +107,37 @@ export default async function LessonPage({
   // Fetch lesson-level inline quiz
   let lessonQuiz = null;
   let lessonQuizQuestions: any[] = [];
-  if (lesson.lessonQuizId) {
-    const quizResult = await db.select().from(dbQuizzes).where(eq(dbQuizzes.id, lesson.lessonQuizId));
-    if (quizResult.length > 0) {
-      lessonQuiz = quizResult[0];
-      const questionsList = await db
+  let quizResult = lesson.lessonQuizId
+    ? await db.select().from(dbQuizzes).where(eq(dbQuizzes.id, lesson.lessonQuizId))
+    : [];
+
+  // Fallback: check if quiz was linked via lessonId
+  if (quizResult.length === 0) {
+    quizResult = await db.select().from(dbQuizzes).where(eq(dbQuizzes.lessonId, lessonUuid));
+  }
+
+  if (quizResult.length > 0) {
+    lessonQuiz = quizResult[0];
+    const questionsList = await db
+      .select()
+      .from(dbQuestions)
+      .where(eq(dbQuestions.quizId, lessonQuiz.id))
+      .orderBy(dbQuestions.orderNumber);
+
+    if (questionsList.length > 0) {
+      const questionIds = questionsList.map((q) => q.id);
+      const answersList = await db
         .select()
-        .from(dbQuestions)
-        .where(eq(dbQuestions.quizId, lessonQuiz.id))
-        .orderBy(dbQuestions.orderNumber);
+        .from(dbAnswers)
+        .where(inArray(dbAnswers.questionId, questionIds));
 
-      if (questionsList.length > 0) {
-        const questionIds = questionsList.map((q) => q.id);
-        const answersList = await db
-          .select()
-          .from(dbAnswers)
-          .where(inArray(dbAnswers.questionId, questionIds));
-
-        lessonQuizQuestions = questionsList.map((q) => ({
-          ...q,
-          answers: answersList.filter((a) => a.questionId === q.id),
-        }));
-      }
+      lessonQuizQuestions = questionsList.map((q) => ({
+        ...q,
+        answers: answersList.filter((a) => a.questionId === q.id),
+      }));
     }
   }
+
 
   // Topic-level quiz (for navigation link at the end)
   let topicQuiz = null;
@@ -186,7 +213,7 @@ export default async function LessonPage({
 
           {/* 4-tab lesson viewer */}
           <LessonViewer
-            lesson={lesson as any}
+            lesson={fullLesson as any}
             quiz={lessonQuiz as any}
             questions={lessonQuizQuestions}
             prevLessonId={prevLesson?.id}

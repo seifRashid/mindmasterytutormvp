@@ -38,11 +38,19 @@ export default async function TeacherLessonBuilderPage({
   const attachmentsList = await db
     .select()
     .from(dbAttachments)
-    .where(eq(dbAttachments.lessonId, lessonUuid));
+    .where(eq(dbAttachments.lessonId, lessonUuid))
+    .orderBy(dbAttachments.orderNumber);
 
   const fullLesson = {
     ...lesson,
-    attachments: attachmentsList,
+    attachments: attachmentsList.map((a) => ({
+      id: a.id,
+      lessonId: a.lessonId,
+      name: a.name,
+      url: a.url,
+      type: a.fileType,
+      orderNumber: a.orderNumber,
+    })),
   };
 
   // Fetch topic, subject, class level
@@ -71,24 +79,29 @@ export default async function TeacherLessonBuilderPage({
   // Fetch quiz & questions
   let quiz = undefined;
   let questionsList: any[] = [];
-  if (lesson.lessonQuizId) {
-    const quizResult = await db.select().from(dbQuizzes).where(eq(dbQuizzes.id, lesson.lessonQuizId));
-    if (quizResult.length > 0) {
-      quiz = quizResult[0];
-      const qs = await db
-        .select()
-        .from(dbQuestions)
-        .where(eq(dbQuestions.quizId, quiz.id))
-        .orderBy(dbQuestions.orderNumber);
+  let quizResult = lesson.lessonQuizId
+    ? await db.select().from(dbQuizzes).where(eq(dbQuizzes.id, lesson.lessonQuizId))
+    : [];
 
-      if (qs.length > 0) {
-        const qIds = qs.map((q) => q.id);
-        const ans = await db.select().from(dbAnswers).where(inArray(dbAnswers.questionId, qIds));
-        questionsList = qs.map((q) => ({
-          ...q,
-          answers: ans.filter((a) => a.questionId === q.id),
-        }));
-      }
+  if (quizResult.length === 0) {
+    quizResult = await db.select().from(dbQuizzes).where(eq(dbQuizzes.lessonId, lessonUuid));
+  }
+
+  if (quizResult.length > 0) {
+    quiz = quizResult[0];
+    const qs = await db
+      .select()
+      .from(dbQuestions)
+      .where(eq(dbQuestions.quizId, quiz.id))
+      .orderBy(dbQuestions.orderNumber);
+
+    if (qs.length > 0) {
+      const qIds = qs.map((q) => q.id);
+      const ans = await db.select().from(dbAnswers).where(inArray(dbAnswers.questionId, qIds));
+      questionsList = qs.map((q) => ({
+        ...q,
+        answers: ans.filter((a) => a.questionId === q.id),
+      }));
     }
   }
 

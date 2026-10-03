@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import { CheckCircle2, Play, Pause } from "lucide-react";
 import { Lesson } from "@/lib/types";
 
+import { buildEmbedSrc } from "@/lib/video-utils";
+
 interface VideoPlayerProps {
   lesson: Lesson;
   initialDuration?: number;
@@ -50,12 +52,14 @@ export function VideoPlayer({
     Math.round((watchedDuration / (lesson.duration || 600)) * 100)
   );
 
+  const videoEmbedSrc = buildEmbedSrc(lesson.videoUrl || "", isPlaying);
+
   return (
     <div className="space-y-4">
       {/* Video Frame */}
       <div className="rounded-2xl overflow-hidden bg-slate-950 border border-slate-800 shadow-2xl aspect-video">
         <iframe
-          src={`${lesson.videoUrl}?autoplay=${isPlaying ? 1 : 0}`}
+          src={videoEmbedSrc}
           title={lesson.title}
           className="w-full h-full"
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
