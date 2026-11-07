@@ -34,11 +34,22 @@ import { RichTextEditor } from "@/components/editor/RichTextEditor";
 
 type Tab = "content" | "video" | "materials" | "quiz";
 
+export interface LessonTopicOption {
+  id: string;
+  title: string;
+  subjectId?: string;
+  subjectTitle?: string;
+  classId?: string;
+  className?: string;
+}
+
 interface LessonBuilderProps {
   lesson: Lesson;
   quiz?: Quiz;
   questions?: Question[];
-  topics?: { id: string; title: string }[];
+  topics?: LessonTopicOption[];
+  subjects?: { id: string; classId: string; title: string }[];
+  classes?: { id: string; name: string }[];
   onSave?: (data: Partial<Lesson>) => void;
 }
 
@@ -267,7 +278,14 @@ function QuestionCard({
   );
 }
 
-export function LessonBuilder({ lesson, quiz, questions: initialQuestions, topics }: LessonBuilderProps) {
+export function LessonBuilder({
+  lesson,
+  quiz,
+  questions: initialQuestions,
+  topics = [],
+  subjects = [],
+  classes = [],
+}: LessonBuilderProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [activeTab, setActiveTab] = useState<Tab>("content");
@@ -277,6 +295,13 @@ export function LessonBuilder({ lesson, quiz, questions: initialQuestions, topic
   // Content tab state
   const [title, setTitle] = useState(lesson.title);
   const [topicId, setTopicId] = useState(lesson.topicId);
+  const initialTopicObj = topics.find((t) => t.id === lesson.topicId);
+  const [selectedClassId, setSelectedClassId] = useState<string>(
+    initialTopicObj?.classId || ""
+  );
+  const [selectedSubjectId, setSelectedSubjectId] = useState<string>(
+    initialTopicObj?.subjectId || ""
+  );
   const [description, setDescription] = useState(lesson.description);
   const [richContent, setRichContent] = useState(lesson.richContent ?? "");
   const [status, setStatus] = useState<"published" | "draft">(lesson.status ?? "published");
@@ -586,19 +611,115 @@ export function LessonBuilder({ lesson, quiz, questions: initialQuestions, topic
               />
             </div>
             {topics && topics.length > 0 && (
-              <div>
-                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wider">
-                  Target Topic *
-                </label>
-                <select
-                  value={topicId}
-                  onChange={(e) => setTopicId(e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-                >
-                  {topics.map((t) => (
-                    <option key={t.id} value={t.id}>{t.title}</option>
-                  ))}
-                </select>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {classes.length > 0 && (
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wider">
+                      Grade / Class Level
+                    </label>
+                    <select
+                      value={selectedClassId}
+                      onChange={(e) => {
+                        const newClassId = e.target.value;
+                        setSelectedClassId(newClassId);
+                        const matchingSubjects = newClassId
+                          ? subjects.filter((s) => s.classId === newClassId)
+                          : subjects;
+                        const nextSubjectId = matchingSubjects[0]?.id || "";
+                        setSelectedSubjectId(nextSubjectId);
+                        const matchingTopics = topics.filter((t) => {
+                          if (nextSubjectId) return t.subjectId === nextSubjectId;
+                          if (newClassId) return t.classId === newClassId;
+                          return true;
+                        });
+                        if (matchingTopics.length > 0) {
+                          setTopicId(matchingTopics[0].id);
+                        }
+                      }}
+                      className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                    >
+                      <option value="">All Grade Levels</option>
+                      {classes.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {subjects.length > 0 && (
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wider">
+                      Subject
+                    </label>
+                    <select
+                      value={selectedSubjectId}
+                      onChange={(e) => {
+                        const newSubjectId = e.target.value;
+                        setSelectedSubjectId(newSubjectId);
+                        const matchingTopics = topics.filter((t) => {
+                          if (newSubjectId) return t.subjectId === newSubjectId;
+                          if (selectedClassId) return t.classId === selectedClassId;
+                          return true;
+                        });
+                        if (matchingTopics.length > 0) {
+                          setTopicId(matchingTopics[0].id);
+                        }
+                      }}
+                      className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                    >
+                      <option value="">All Subjects</option>
+                      {subjects
+                        .filter((s) => !selectedClassId || s.classId === selectedClassId)
+                        .map((s) => {
+                          const cls = classes.find((c) => c.id === s.classId);
+                          return (
+                            <option key={s.id} value={s.id}>
+                              {s.title}
+                              {!selectedClassId && cls ? ` (${cls.name})` : ""}
+                            </option>
+                          );
+                        })}
+                    </select>
+                  </div>
+                )}
+
+                <div className={classes.length === 0 && subjects.length === 0 ? "md:col-span-3" : ""}>
+                  <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wider">
+                    Target Topic *
+                  </label>
+                  <select
+                    value={topicId}
+                    onChange={(e) => {
+                      const nextTopicId = e.target.value;
+                      setTopicId(nextTopicId);
+                      const found = topics.find((t) => t.id === nextTopicId);
+                      if (found?.classId) setSelectedClassId(found.classId);
+                      if (found?.subjectId) setSelectedSubjectId(found.subjectId);
+                    }}
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                  >
+                    {topics
+                      .filter((t) => {
+                        if (selectedSubjectId && t.subjectId) return t.subjectId === selectedSubjectId;
+                        if (selectedClassId && t.classId) return t.classId === selectedClassId;
+                        return true;
+                      })
+                      .map((t) => {
+                        const contextParts = [t.className, t.subjectTitle].filter(Boolean);
+                        const label =
+                          contextParts.length > 0
+                            ? `${t.title} (${contextParts.join(" · ")})`
+                            : t.title;
+                        return (
+                          <option key={t.id} value={t.id}>
+                            {label}
+                          </option>
+                        );
+                      })}
+                  </select>
+                </div>
               </div>
             )}
             <div>

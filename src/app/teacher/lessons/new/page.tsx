@@ -5,14 +5,33 @@ import { Sidebar } from "@/components/layout/Sidebar";
 import { LessonBuilder } from "@/components/admin/LessonBuilder";
 import { getSession } from "@/lib/auth";
 import { db } from "@/db";
-import { topics as dbTopics } from "@/db/schema";
-import { toUuid } from "@/lib/id-mapper";
+import { topics as dbTopics, subjects as dbSubjects, classes as dbClasses } from "@/db/schema";
 
 export default async function TeacherNewLessonPage() {
   const session = await getSession();
 
+  const allClasses = await db.select().from(dbClasses).orderBy(dbClasses.name);
+  const allSubjects = await db.select().from(dbSubjects);
   const allTopicsList = await db.select().from(dbTopics).orderBy(dbTopics.orderNumber);
-  const topicOptions = allTopicsList.map((t) => ({ id: t.id, title: t.title }));
+
+  const classOptions = allClasses.map((c) => ({ id: c.id, name: c.name }));
+  const subjectOptions = allSubjects.map((s) => ({
+    id: s.id,
+    classId: s.classId,
+    title: s.title,
+  }));
+  const topicOptions = allTopicsList.map((t) => {
+    const sub = allSubjects.find((s) => s.id === t.subjectId);
+    const cls = sub ? allClasses.find((c) => c.id === sub.classId) : undefined;
+    return {
+      id: t.id,
+      title: t.title,
+      subjectId: t.subjectId,
+      subjectTitle: sub?.title,
+      classId: cls?.id,
+      className: cls?.name,
+    };
+  });
 
   const newLessonId = crypto.randomUUID();
 
@@ -54,6 +73,8 @@ export default async function TeacherNewLessonPage() {
           <LessonBuilder
             lesson={newLesson as any}
             topics={topicOptions}
+            subjects={subjectOptions}
+            classes={classOptions}
           />
         </main>
       </div>

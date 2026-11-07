@@ -141,11 +141,14 @@ export function TopicsListManager({ topics, subjects, classes }: TopicsListManag
                 className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-xs font-semibold rounded-xl text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
               >
                 <option value="" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">All Subjects</option>
-                {filteredSubjectsList.map((s) => (
-                  <option key={s.id} value={s.id} className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">
-                    {s.title}
-                  </option>
-                ))}
+                {filteredSubjectsList.map((s) => {
+                  const cls = classes.find((c) => c.id === s.classId);
+                  return (
+                    <option key={s.id} value={s.id} className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">
+                      {s.title}{!selectedClassId && cls ? ` (${cls.name})` : ""}
+                    </option>
+                  );
+                })}
               </select>
             </div>
           </div>
@@ -199,7 +202,13 @@ export function TopicsListManager({ topics, subjects, classes }: TopicsListManag
                           description: top.description || "",
                           orderNumber: top.orderNumber,
                         }}
-                        subjects={subjects.map((s) => ({ id: s.id, title: s.title }))}
+                        subjects={subjects.map((s) => {
+                          const cls = classes.find((c) => c.id === s.classId);
+                          return {
+                            id: s.id,
+                            title: cls ? `${s.title} (${cls.name})` : s.title,
+                          };
+                        })}
                       />
                       <DeleteTopicModal topic={top} />
                     </td>

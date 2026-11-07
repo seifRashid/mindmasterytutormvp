@@ -19,6 +19,8 @@ import { eq, and, inArray, isNull } from "drizzle-orm";
 import { toUuid } from "@/lib/id-mapper";
 import { redirect } from "next/navigation";
 
+export const dynamic = "force-dynamic";
+
 // Helper function to calculate calendar streak
 async function getStreakDays(userId: string): Promise<number> {
   const userUuid = toUuid(userId);

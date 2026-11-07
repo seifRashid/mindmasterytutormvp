@@ -29,6 +29,8 @@ import {
 import { eq, and, inArray, isNull, or } from "drizzle-orm";
 import { toUuid } from "@/lib/id-mapper";
 
+export const dynamic = "force-dynamic";
+
 // Helper function to calculate calendar streak
 async function getStreakDays(userId: string): Promise<number> {
   const userUuid = toUuid(userId);
@@ -124,11 +126,14 @@ export default async function StudentDashboardPage() {
       .where(inArray(dbTopics.subjectId, subjectIds))
       .orderBy(dbTopics.orderNumber);
 
+    let lessonsList: Array<typeof dbLessons.$inferSelect> = [];
+    let completedProgress: Array<typeof dbProgress.$inferSelect> = [];
+
     if (topicsList.length > 0) {
       const topicIds = topicsList.map((t) => t.id);
 
       // Get all lessons for these topics
-      const lessonsList = await db
+      lessonsList = await db
         .select()
         .from(dbLessons)
         .where(
@@ -144,7 +149,7 @@ export default async function StudentDashboardPage() {
         const lessonIds = lessonsList.map((l) => l.id);
 
         // Get completed progress records for these lessons
-        const completedProgress = await db
+        completedProgress = await db
           .select()
           .from(dbProgress)
           .where(
@@ -170,29 +175,29 @@ export default async function StudentDashboardPage() {
           const parentTopic = topicsList.find((t) => t.id === resumeLesson.topicId);
           resumeSubject = studentSubjects.find((s) => s.id === parentTopic?.subjectId);
         }
-
-        // Calculate progress percentage for each subject
-        for (const sub of studentSubjects) {
-          const subTopics = topicsList.filter((t) => t.subjectId === sub.id);
-          const subTopicIds = subTopics.map((t) => t.id);
-          const subLessons = lessonsList.filter((l) => subTopicIds.includes(l.topicId));
-          const subLessonIds = subLessons.map((l) => l.id);
-
-          let percent = 0;
-          if (subLessons.length > 0) {
-            const completedInSub = completedProgress.filter((p) =>
-              subLessonIds.includes(p.lessonId)
-            );
-            percent = Math.round((completedInSub.length / subLessons.length) * 100);
-          }
-
-          subjectProgressList.push({
-            ...sub,
-            topicsCount: subTopics.length,
-            percent,
-          });
-        }
       }
+    }
+
+    // Calculate progress percentage for each subject in the student's grade
+    for (const sub of studentSubjects) {
+      const subTopics = topicsList.filter((t) => t.subjectId === sub.id);
+      const subTopicIds = subTopics.map((t) => t.id);
+      const subLessons = lessonsList.filter((l) => subTopicIds.includes(l.topicId));
+      const subLessonIds = subLessons.map((l) => l.id);
+
+      let percent = 0;
+      if (subLessons.length > 0) {
+        const completedInSub = completedProgress.filter((p) =>
+          subLessonIds.includes(p.lessonId)
+        );
+        percent = Math.round((completedInSub.length / subLessons.length) * 100);
+      }
+
+      subjectProgressList.push({
+        ...sub,
+        topicsCount: subTopics.length,
+        percent,
+      });
     }
   }
 
@@ -236,7 +241,7 @@ export default async function StudentDashboardPage() {
           quizConditions.push(inArray(dbQuizzes.lessonId, lessonIds));
         }
 
-        activeQuizzes = await db
+        const rawQuizzes = await db
           .select()
           .from(dbQuizzes)
           .where(
@@ -245,6 +250,11 @@ export default async function StudentDashboardPage() {
               quizConditions.length === 1 ? quizConditions[0] : or(...quizConditions)
             )
           );
+
+        // Exclude inline lesson quizzes whose parent lesson is draft or soft-deleted
+        activeQuizzes = rawQuizzes.filter(
+          (q) => !q.lessonId || lessonIds.includes(q.lessonId)
+        );
 
         if (activeQuizzes.length > 0) {
           const quizIds = activeQuizzes.map((q) => q.id);

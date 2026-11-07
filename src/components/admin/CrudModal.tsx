@@ -21,6 +21,7 @@ export function CrudModal({ type, classes = [], subjects = [], topics = [] }: Cr
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [selectedClassId, setSelectedClassId] = useState("");
+  const [error, setError] = useState<string | null>(null);
 
   const titles = {
     class: "Create New Class Level",
@@ -33,15 +34,21 @@ export function CrudModal({ type, classes = [], subjects = [], topics = [] }: Cr
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
+    setError(null);
     const formData = new FormData(e.currentTarget);
 
-    if (type === "class") await createClassAction(formData);
-    else if (type === "subject") await createSubjectAction(formData);
-    else if (type === "topic") await createTopicAction(formData);
-    else if (type === "lesson") await createLessonAction(formData);
-    else if (type === "quiz") await createQuizAction(formData);
+    let res: { error?: string; success?: boolean } | undefined;
+    if (type === "class") res = await createClassAction(formData);
+    else if (type === "subject") res = await createSubjectAction(formData);
+    else if (type === "topic") res = await createTopicAction(formData);
+    else if (type === "lesson") res = await createLessonAction(formData);
+    else if (type === "quiz") res = await createQuizAction(formData);
 
     setLoading(false);
+    if (res?.error) {
+      setError(res.error);
+      return;
+    }
     setSelectedClassId("");
     setIsOpen(false);
   };
@@ -69,6 +76,7 @@ export function CrudModal({ type, classes = [], subjects = [], topics = [] }: Cr
               <button
                 onClick={() => {
                   setSelectedClassId("");
+                  setError(null);
                   setIsOpen(false);
                 }}
                 className="p-1 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
@@ -76,6 +84,12 @@ export function CrudModal({ type, classes = [], subjects = [], topics = [] }: Cr
                 <X className="w-5 h-5" />
               </button>
             </div>
+
+            {error && (
+              <div className="p-3 bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400 text-xs rounded-xl font-medium">
+                {error}
+              </div>
+            )}
 
             <form onSubmit={handleSubmit} className="space-y-4">
               {type === "class" && (
@@ -166,11 +180,14 @@ export function CrudModal({ type, classes = [], subjects = [], topics = [] }: Cr
                       <option value="" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">Select a Subject...</option>
                       {subjects
                         .filter((s) => !selectedClassId || s.classId === selectedClassId)
-                        .map((s) => (
-                          <option key={s.id} value={s.id} className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">
-                            {s.title}
-                          </option>
-                        ))}
+                        .map((s) => {
+                          const cls = classes.find((c) => c.id === s.classId);
+                          return (
+                            <option key={s.id} value={s.id} className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">
+                              {s.title}{!selectedClassId && cls ? ` (${cls.name})` : ""}
+                            </option>
+                          );
+                        })}
                     </select>
                   </div>
                   <div>

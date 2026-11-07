@@ -19,6 +19,8 @@ import {
 import { eq, and, isNull, inArray } from "drizzle-orm";
 import { toUuid } from "@/lib/id-mapper";
 
+export const dynamic = "force-dynamic";
+
 export default async function QuizPage({
   params,
 }: {
@@ -55,6 +57,23 @@ export default async function QuizPage({
     notFound();
   }
   const quiz = quizResult[0];
+
+  // If this quiz is attached to a specific lesson, ensure that lesson is active and published for students
+  if (quiz.lessonId && isStudent) {
+    const parentLessonRows = await db
+      .select()
+      .from(dbLessons)
+      .where(
+        and(
+          eq(dbLessons.id, quiz.lessonId),
+          isNull(dbLessons.deletedAt),
+          eq(dbLessons.status, "published")
+        )
+      );
+    if (parentLessonRows.length === 0) {
+      notFound();
+    }
+  }
 
   // 2. Trace Quiz to Subject and Class for server-side authorization
   let topic = null;

@@ -15,11 +15,12 @@ import { Sidebar } from "@/components/layout/Sidebar";
 import { AnalyticsCharts } from "@/components/admin/AnalyticsCharts";
 import { CrudModal } from "@/components/admin/CrudModal";
 import { getSession } from "@/lib/auth";
-import { INITIAL_LESSONS, INITIAL_QUIZZES, INITIAL_TOPICS } from "@/lib/mock-data";
 import { getUsers } from "@/lib/user-store";
 import { db } from "@/db";
 import { classes as dbClasses, subjects as dbSubjects, topics as dbTopics, lessons as dbLessons, quizzes as dbQuizzes } from "@/db/schema";
 import { count, isNull } from "drizzle-orm";
+
+export const dynamic = "force-dynamic";
 
 export default async function AdminDashboardPage() {
   const session = await getSession();
@@ -32,7 +33,19 @@ export default async function AdminDashboardPage() {
   const [quizzesCountResult] = await db.select({ value: count() }).from(dbQuizzes).where(isNull(dbQuizzes.deletedAt));
 
   const dbClassesList = await db.select().from(dbClasses).orderBy(dbClasses.name);
+  const dbSubjectsList = await db.select().from(dbSubjects);
+  const dbTopicsList = await db.select().from(dbTopics).orderBy(dbTopics.orderNumber);
+
   const classesList = dbClassesList.map((c) => ({ id: c.id, name: c.name }));
+  const topicsList = dbTopicsList.map((t) => {
+    const sub = dbSubjectsList.find((s) => s.id === t.subjectId);
+    const cls = sub ? dbClassesList.find((c) => c.id === sub.classId) : undefined;
+    const context = [cls?.name, sub?.title].filter(Boolean).join(" · ");
+    return {
+      id: t.id,
+      title: context ? `${t.title} (${context})` : t.title,
+    };
+  });
 
   return (
     <div className="min-h-screen bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-white flex flex-col">
@@ -64,7 +77,7 @@ export default async function AdminDashboardPage() {
               />
               <CrudModal
                 type="lesson"
-                topics={INITIAL_TOPICS.map((t) => ({ id: t.id, title: t.title }))}
+                topics={topicsList}
               />
             </div>
           </div>

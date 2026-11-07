@@ -16,6 +16,8 @@ import {
 import { eq, and, isNull, inArray, or } from "drizzle-orm";
 import { toUuid } from "@/lib/id-mapper";
 
+export const dynamic = "force-dynamic";
+
 export default async function StudentQuizzesPage() {
   const session = await getSession();
   if (!session) {
@@ -106,7 +108,7 @@ export default async function StudentQuizzesPage() {
         conditions.push(inArray(dbQuizzes.lessonId, lessonIds));
       }
 
-      activeQuizzes = await db
+      const rawQuizzes = await db
         .select()
         .from(dbQuizzes)
         .where(
@@ -115,6 +117,11 @@ export default async function StudentQuizzesPage() {
             conditions.length === 1 ? conditions[0] : or(...conditions)
           )
         );
+
+      // Exclude inline lesson quizzes whose parent lesson is draft or soft-deleted
+      activeQuizzes = rawQuizzes.filter(
+        (q) => !q.lessonId || lessonIds.includes(q.lessonId)
+      );
     }
 
     if (activeQuizzes.length > 0) {

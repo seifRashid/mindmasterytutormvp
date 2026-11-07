@@ -68,91 +68,131 @@ export async function createClassAction(formData: FormData) {
 
 export async function createSubjectAction(formData: FormData) {
   const classId = formData.get("classId") as string;
-  const title = formData.get("title") as string;
+  const title = (formData.get("title") as string)?.trim();
   const description = formData.get("description") as string;
   const icon = (formData.get("icon") as string) || "BookOpen";
 
   if (!classId || !title) return { error: "Class and title are required" };
 
-  const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-");
-  const newSubject: Subject = {
-    id: `sub-${Date.now()}`,
-    classId,
-    title,
-    slug,
-    description: description || "",
-    icon,
-    createdAt: new Date().toISOString(),
-  };
-
-  INITIAL_SUBJECTS.push(newSubject);
+  const classUuid = toUuid(classId);
+  const titleSlug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 
   try {
+    // Fetch parent class to scope subject slug by grade and prevent duplicate subject titles in the same grade
+    const classRows = await db.select().from(dbClasses).where(eq(dbClasses.id, classUuid));
+    const parentClass = classRows[0];
+    const classSlug = parentClass?.slug || classId.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+
+    const existingSubjectsInClass = await db
+      .select()
+      .from(subjects)
+      .where(eq(subjects.classId, classUuid));
+
+    const duplicate = existingSubjectsInClass.find(
+      (s) => s.title.trim().toLowerCase() === title.toLowerCase()
+    );
+    if (duplicate) {
+      return {
+        error: `Subject "${title}" already exists in ${parentClass?.name || "this class"}.`,
+      };
+    }
+
+    const slug = titleSlug.startsWith(`${classSlug}-`)
+      ? titleSlug
+      : `${classSlug}-${titleSlug}`;
+
+    const newSubject: Subject = {
+      id: `sub-${Date.now()}`,
+      classId: classUuid,
+      title,
+      slug,
+      description: description || "",
+      icon,
+      createdAt: new Date().toISOString(),
+    };
+
+    INITIAL_SUBJECTS.push(newSubject);
+
     await db.insert(subjects).values({
       id: toUuid(newSubject.id),
-      classId: toUuid(classId),
+      classId: classUuid,
       title: newSubject.title,
       slug: newSubject.slug,
       description: newSubject.description || null,
       icon: newSubject.icon,
       createdAt: new Date(newSubject.createdAt),
     });
+
+    revalidatePath("/admin/subjects");
+    revalidatePath("/admin/topics");
+    revalidatePath("/dashboard/subjects", "layout");
+    revalidatePath("/dashboard");
+    revalidatePath("/dashboard/progress");
+    return { success: true, subject: newSubject };
   } catch (err) {
     console.error("Failed to insert subject in DB:", err);
     return { error: "Failed to create subject in database." };
   }
-
-  revalidatePath("/admin/subjects");
-  revalidatePath("/dashboard/subjects");
-  revalidatePath("/dashboard");
-  revalidatePath("/dashboard/progress");
-  return { success: true, subject: newSubject };
 }
 
 export async function createTopicAction(formData: FormData) {
   const subjectId = formData.get("subjectId") as string;
-  const title = formData.get("title") as string;
+  const title = (formData.get("title") as string)?.trim();
   const description = formData.get("description") as string;
 
   if (!subjectId || !title) return { error: "Subject and title are required" };
 
-  const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-");
-  const newTopic: Topic = {
-    id: `top-${Date.now()}`,
-    subjectId,
-    title,
-    slug,
-    description: description || "",
-    orderNumber: INITIAL_TOPICS.length + 1,
-    createdAt: new Date().toISOString(),
-  };
-
-  INITIAL_TOPICS.push(newTopic);
+  const subjectUuid = toUuid(subjectId);
+  const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 
   try {
+    const existingTopics = await db
+      .select()
+      .from(dbTopics)
+      .where(eq(dbTopics.subjectId, subjectUuid));
+
+    const nextOrder =
+      existingTopics.length > 0
+        ? Math.max(...existingTopics.map((t) => t.orderNumber || 0)) + 1
+        : 1;
+
+    const newTopic: Topic = {
+      id: `top-${Date.now()}`,
+      subjectId: subjectUuid,
+      title,
+      slug,
+      description: description || "",
+      orderNumber: nextOrder,
+      createdAt: new Date().toISOString(),
+    };
+
+    INITIAL_TOPICS.push(newTopic);
+
     await db.insert(dbTopics).values({
       id: toUuid(newTopic.id),
-      subjectId: toUuid(subjectId),
+      subjectId: subjectUuid,
       title: newTopic.title,
       slug: newTopic.slug,
       description: newTopic.description || null,
       orderNumber: newTopic.orderNumber,
       createdAt: new Date(newTopic.createdAt),
     });
+
+    revalidatePath("/admin/topics");
+    revalidatePath("/admin/lessons");
+    revalidatePath("/teacher/lessons");
+    revalidatePath("/dashboard/subjects", "layout");
+    revalidatePath("/dashboard");
+    return { success: true, topic: newTopic };
   } catch (err) {
     console.error("Failed to insert topic into DB:", err);
     return { error: "Failed to create topic in database." };
   }
-
-  revalidatePath("/admin/topics");
-  revalidatePath("/dashboard/subjects");
-  revalidatePath("/dashboard");
-  return { success: true, topic: newTopic };
 }
 
 export async function createLessonAction(formData: FormData) {
   const topicId = formData.get("topicId") as string;
-  const title = formData.get("title") as string;
+  const title = (formData.get("title") as string)?.trim();
   const description = formData.get("description") as string;
   const videoUrl = formData.get("videoUrl") as string;
   const duration = parseInt((formData.get("duration") as string) || "600", 10);
@@ -162,46 +202,57 @@ export async function createLessonAction(formData: FormData) {
   const session = await getSession();
   const userUuid = session?.id ? toUuid(session.id) : null;
   const formattedVideo = videoUrl ? formatVideoEmbedUrl(videoUrl) : null;
-
-  const lessonUuid = crypto.randomUUID();
-  const newLesson: Lesson = {
-    id: lessonUuid,
-    topicId,
-    title,
-    description: description || "",
-    videoUrl: formattedVideo || videoUrl || "",
-    duration,
-    orderNumber: INITIAL_LESSONS.length + 1,
-    createdAt: new Date().toISOString(),
-  };
-
-  INITIAL_LESSONS.push(newLesson);
+  const topicUuid = toUuid(topicId);
 
   try {
+    const existingLessons = await db
+      .select()
+      .from(dbLessons)
+      .where(eq(dbLessons.topicId, topicUuid));
+
+    const nextOrder =
+      existingLessons.length > 0
+        ? Math.max(...existingLessons.map((l) => l.orderNumber || 0)) + 1
+        : 1;
+
+    const lessonUuid = crypto.randomUUID();
+    const newLesson: Lesson = {
+      id: lessonUuid,
+      topicId: topicUuid,
+      title,
+      description: description || "",
+      videoUrl: formattedVideo || videoUrl || "",
+      duration,
+      orderNumber: nextOrder,
+      createdAt: new Date().toISOString(),
+    };
+
+    INITIAL_LESSONS.push(newLesson);
+
     await db.insert(dbLessons).values({
       id: lessonUuid,
-      topicId: toUuid(topicId),
+      topicId: topicUuid,
       title,
       description: description || null,
       richContent: null,
       videoUrl: formattedVideo || null,
       duration,
-      orderNumber: INITIAL_LESSONS.length,
+      orderNumber: nextOrder,
       status: "published",
       createdBy: userUuid,
       createdAt: new Date(),
     });
+
+    revalidatePath("/admin/lessons");
+    revalidatePath("/teacher/lessons");
+    revalidatePath("/dashboard");
+    revalidatePath("/dashboard/subjects", "layout");
+    revalidatePath("/dashboard/progress");
+    return { success: true, lesson: newLesson };
   } catch (err) {
     console.error("Failed to insert lesson into DB:", err);
     return { error: "Failed to create lesson in database." };
   }
-
-  revalidatePath("/admin/lessons");
-  revalidatePath("/teacher/lessons");
-  revalidatePath("/dashboard");
-  revalidatePath("/dashboard/subjects");
-  revalidatePath("/dashboard/progress");
-  return { success: true, lesson: newLesson };
 }
 
 export async function createQuizAction(formData: FormData) {
@@ -376,7 +427,7 @@ export async function deleteEntityAction(entityType: "class" | "subject" | "topi
   revalidatePath("/teacher/lessons");
   revalidatePath("/teacher/quizzes");
   revalidatePath("/dashboard");
-  revalidatePath("/dashboard/subjects");
+  revalidatePath("/dashboard/subjects", "layout");
   revalidatePath("/dashboard/quizzes");
   revalidatePath("/dashboard/progress");
   revalidatePath(`/dashboard/lessons/${id}`);
@@ -387,46 +438,70 @@ export async function deleteEntityAction(entityType: "class" | "subject" | "topi
 export async function editSubjectAction(formData: FormData) {
   const id = formData.get("id") as string;
   const classId = formData.get("classId") as string;
-  const title = formData.get("title") as string;
+  const title = (formData.get("title") as string)?.trim();
   const description = formData.get("description") as string;
   const icon = (formData.get("icon") as string) || "BookOpen";
 
   if (!id || !classId || !title) return { error: "ID, Class, and title are required" };
 
-  const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+  const subjectUuid = toUuid(id);
+  const classUuid = toUuid(classId);
+  const titleSlug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 
-  // Update in-memory
-  const idx = INITIAL_SUBJECTS.findIndex((s) => s.id === id);
-  if (idx > -1) {
-    INITIAL_SUBJECTS[idx] = {
-      ...INITIAL_SUBJECTS[idx],
-      classId,
-      title,
-      slug,
-      description: description || "",
-      icon,
-    };
-  }
-
-  // Update DB
   try {
+    const classRows = await db.select().from(dbClasses).where(eq(dbClasses.id, classUuid));
+    const parentClass = classRows[0];
+    const classSlug = parentClass?.slug || classId.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+
+    const existingSubjectsInClass = await db
+      .select()
+      .from(subjects)
+      .where(eq(subjects.classId, classUuid));
+
+    const duplicate = existingSubjectsInClass.find(
+      (s) => s.id !== subjectUuid && s.title.trim().toLowerCase() === title.toLowerCase()
+    );
+    if (duplicate) {
+      return {
+        error: `Subject "${title}" already exists in ${parentClass?.name || "this class"}.`,
+      };
+    }
+
+    const slug = titleSlug.startsWith(`${classSlug}-`)
+      ? titleSlug
+      : `${classSlug}-${titleSlug}`;
+
+    // Update in-memory
+    const idx = INITIAL_SUBJECTS.findIndex((s) => s.id === id);
+    if (idx > -1) {
+      INITIAL_SUBJECTS[idx] = {
+        ...INITIAL_SUBJECTS[idx],
+        classId: classUuid,
+        title,
+        slug,
+        description: description || "",
+        icon,
+      };
+    }
+
     await db
       .update(subjects)
       .set({
-        classId: toUuid(classId),
+        classId: classUuid,
         title,
         slug,
         description: description || null,
         icon,
       })
-      .where(eq(subjects.id, toUuid(id)));
+      .where(eq(subjects.id, subjectUuid));
   } catch (err) {
     console.error("Failed to update subject in DB:", err);
     return { error: "Failed to update subject in database." };
   }
 
   revalidatePath("/admin/subjects");
-  revalidatePath("/dashboard/subjects");
+  revalidatePath("/admin/topics");
+  revalidatePath("/dashboard/subjects", "layout");
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/progress");
   return { success: true };

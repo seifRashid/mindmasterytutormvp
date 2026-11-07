@@ -16,6 +16,8 @@ import {
 import { eq, and, inArray, isNull } from "drizzle-orm";
 import { toUuid } from "@/lib/id-mapper";
 
+export const dynamic = "force-dynamic";
+
 export default async function StudentSubjectsPage() {
   const session = await getSession();
   if (!session) {
@@ -70,17 +72,19 @@ export default async function StudentSubjectsPage() {
         .from(dbSubjects)
         .where(inArray(dbSubjects.classId, classIds));
 
+      let allTopics: Array<typeof dbTopics.$inferSelect> = [];
+      let allLessons: Array<{ id: string; topicId: string }> = [];
+      let completedLessonIds = new Set<string>();
+
       if (allSubjects.length > 0) {
         const subjectIds = allSubjects.map((s) => s.id);
-        const allTopics = await db
+        allTopics = await db
           .select()
           .from(dbTopics)
           .where(inArray(dbTopics.subjectId, subjectIds))
           .orderBy(dbTopics.orderNumber);
 
         const topicIds = allTopics.map((t) => t.id);
-        let allLessons: Array<{ id: string; topicId: string }> = [];
-        let completedLessonIds = new Set<string>();
 
         if (topicIds.length > 0) {
           allLessons = await db
@@ -109,42 +113,42 @@ export default async function StudentSubjectsPage() {
             completedLessonIds = new Set(completedProgress.map((p) => p.lessonId));
           }
         }
-
-        // Map hierarchy
-        classesWithSubjects = targetClasses.map((cls) => {
-          const subjectsForClass = allSubjects
-            .filter((s) => s.classId === cls.id)
-            .map((sub) => {
-              const subTopics = allTopics.filter((t) => t.subjectId === sub.id);
-              const subTopicIds = subTopics.map((t) => t.id);
-              const subLessons = allLessons.filter((l) => subTopicIds.includes(l.topicId));
-
-              let percentCompleted = 0;
-              if (subLessons.length > 0) {
-                const finishedCount = subLessons.filter((l) => completedLessonIds.has(l.id)).length;
-                percentCompleted = Math.round((finishedCount / subLessons.length) * 100);
-              }
-
-              return {
-                id: sub.id,
-                title: sub.title,
-                slug: sub.slug,
-                description: sub.description,
-                icon: sub.icon,
-                topicsCount: subTopics.length,
-                lessonsCount: subLessons.length,
-                percentCompleted,
-              };
-            });
-
-          return {
-            id: cls.id,
-            name: cls.name,
-            slug: cls.slug,
-            subjects: subjectsForClass,
-          };
-        });
       }
+
+      // Map hierarchy for all target classes
+      classesWithSubjects = targetClasses.map((cls) => {
+        const subjectsForClass = allSubjects
+          .filter((s) => s.classId === cls.id)
+          .map((sub) => {
+            const subTopics = allTopics.filter((t) => t.subjectId === sub.id);
+            const subTopicIds = subTopics.map((t) => t.id);
+            const subLessons = allLessons.filter((l) => subTopicIds.includes(l.topicId));
+
+            let percentCompleted = 0;
+            if (subLessons.length > 0) {
+              const finishedCount = subLessons.filter((l) => completedLessonIds.has(l.id)).length;
+              percentCompleted = Math.round((finishedCount / subLessons.length) * 100);
+            }
+
+            return {
+              id: sub.id,
+              title: sub.title,
+              slug: sub.slug,
+              description: sub.description,
+              icon: sub.icon,
+              topicsCount: subTopics.length,
+              lessonsCount: subLessons.length,
+              percentCompleted,
+            };
+          });
+
+        return {
+          id: cls.id,
+          name: cls.name,
+          slug: cls.slug,
+          subjects: subjectsForClass,
+        };
+      });
     }
   } catch (err) {
     console.error("Failed to load subjects from database:", err);

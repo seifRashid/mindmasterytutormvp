@@ -147,9 +147,29 @@ export default async function TeacherLessonBuilderPage({
     }
   }
 
-  // Fetch all topic choices for dropdown selector
+  // Fetch all class, subject, and topic choices for dropdown selector
+  const allClasses = await db.select().from(dbClasses).orderBy(dbClasses.name);
+  const allSubjects = await db.select().from(dbSubjects);
   const allTopicsList = await db.select().from(dbTopics).orderBy(dbTopics.orderNumber);
-  const topicOptions = allTopicsList.map((t) => ({ id: t.id, title: t.title }));
+
+  const classOptions = allClasses.map((c) => ({ id: c.id, name: c.name }));
+  const subjectOptions = allSubjects.map((s) => ({
+    id: s.id,
+    classId: s.classId,
+    title: s.title,
+  }));
+  const topicOptions = allTopicsList.map((t) => {
+    const sub = allSubjects.find((s) => s.id === t.subjectId);
+    const cls = sub ? allClasses.find((c) => c.id === sub.classId) : undefined;
+    return {
+      id: t.id,
+      title: t.title,
+      subjectId: t.subjectId,
+      subjectTitle: sub?.title,
+      classId: cls?.id,
+      className: cls?.name,
+    };
+  });
 
   return (
     <div className="min-h-screen bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-white flex flex-col">
@@ -195,6 +215,8 @@ export default async function TeacherLessonBuilderPage({
             quiz={quiz as any}
             questions={questionsList}
             topics={topicOptions}
+            subjects={subjectOptions}
+            classes={classOptions}
           />
         </main>
       </div>

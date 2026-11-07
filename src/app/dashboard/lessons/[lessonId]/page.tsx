@@ -21,6 +21,8 @@ import {
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import { toUuid } from "@/lib/id-mapper";
 
+export const dynamic = "force-dynamic";
+
 export default async function LessonPage({
   params,
 }: {

@@ -29,7 +29,9 @@ import {
   quizAttempts as dbAttempts,
 } from "@/db/schema";
 import { eq, and, inArray, isNull } from "drizzle-orm";
-import { toUuid } from "@/lib/id-mapper";
+import { isUuid, toUuid } from "@/lib/id-mapper";
+
+export const dynamic = "force-dynamic";
 
 export default async function SubjectDetailPage({
   params,
@@ -48,20 +50,81 @@ export default async function SubjectDetailPage({
     redirect("/pending-approval");
   }
 
-  const { subjectSlug } = await params;
+  const { subjectSlug: rawParam } = await params;
+  const subjectSlug = decodeURIComponent(rawParam);
   const userUuid = toUuid(currentUser.id);
   const isStudent = currentUser.role === "student";
+  const studentClassUuid = currentUser.classId ? toUuid(currentUser.classId) : null;
 
-  // 1. Fetch Subject from Neon PostgreSQL
-  const dbSub = await db
-    .select()
-    .from(dbSubjects)
-    .where(eq(dbSubjects.slug, subjectSlug));
+  // 1. Fetch Subject from Neon PostgreSQL using ID or Class-Aware Slug Resolution
+  let subject: typeof dbSubjects.$inferSelect | undefined;
 
-  if (dbSub.length === 0) {
+  if (isUuid(subjectSlug)) {
+    const byId = await db
+      .select()
+      .from(dbSubjects)
+      .where(eq(dbSubjects.id, subjectSlug));
+    subject = byId[0];
+  }
+
+  if (!subject) {
+    const bySlug = await db
+      .select()
+      .from(dbSubjects)
+      .where(eq(dbSubjects.slug, subjectSlug));
+
+    if (bySlug.length > 0) {
+      // If multiple subjects share the same slug across grades, prefer the student's assigned grade
+      if (studentClassUuid) {
+        subject = bySlug.find((s) => s.classId === studentClassUuid) || bySlug[0];
+      } else {
+        subject = bySlug[0];
+      }
+    }
+  }
+
+  // Fallback for generic subject slugs (e.g. "/dashboard/subjects/mathematics") when slugs are class-scoped
+  if (!subject || (isStudent && studentClassUuid && subject.classId !== studentClassUuid)) {
+    const normalizedParam = subjectSlug
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "");
+
+    const allSubjects = await db.select().from(dbSubjects);
+    const matchingByTitleOrSlug = allSubjects.filter((s) => {
+      const normTitle = s.title
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, "");
+      return s.slug.toLowerCase() === normalizedParam || normTitle === normalizedParam;
+    });
+
+    // Only override with student's class subject if the URL param was a generic title/slug (not an explicit other-grade slug or UUID)
+    const isGenericSlug = matchingByTitleOrSlug.some(
+      (s) =>
+        s.title
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/^-|-$/g, "") === normalizedParam
+    );
+
+    if (isGenericSlug && studentClassUuid) {
+      const studentGradeMatch = matchingByTitleOrSlug.find(
+        (s) => s.classId === studentClassUuid
+      );
+      if (studentGradeMatch) {
+        subject = studentGradeMatch;
+      } else if (!subject && matchingByTitleOrSlug.length > 0) {
+        subject = matchingByTitleOrSlug[0];
+      }
+    } else if (!subject && matchingByTitleOrSlug.length > 0) {
+      subject = matchingByTitleOrSlug[0];
+    }
+  }
+
+  if (!subject) {
     notFound();
   }
-  const subject = dbSub[0];
 
   // 2. Fetch Parent Class
   let parentClass = null;
@@ -76,7 +139,6 @@ export default async function SubjectDetailPage({
   }
 
   // 3. Enforce Server-Side Class Isolation
-  const studentClassUuid = currentUser.classId ? toUuid(currentUser.classId) : null;
   const isAuthorized = !isStudent || !studentClassUuid || studentClassUuid === subject.classId;
 
   if (!isAuthorized) {
@@ -171,7 +233,7 @@ export default async function SubjectDetailPage({
   }> = [];
 
   if (topicIds.length > 0) {
-    quizzesList = await db
+    const rawQuizzes = await db
       .select({
         id: dbQuizzes.id,
         topicId: dbQuizzes.topicId,
@@ -188,6 +250,11 @@ export default async function SubjectDetailPage({
           inArray(dbQuizzes.topicId, topicIds)
         )
       );
+
+    // Only include standalone topic quizzes or quizzes whose parent lesson is published and active
+    quizzesList = rawQuizzes.filter(
+      (q) => !q.lessonId || lessonIds.includes(q.lessonId)
+    );
   }
 
   // 7. Fetch Student Completion Progress
@@ -293,7 +360,9 @@ export default async function SubjectDetailPage({
               <div className="space-y-6">
                 {topics.map((topic, index) => {
                   const topicLessons = lessonsList.filter((l) => l.topicId === topic.id);
-                  const topicQuiz = quizzesList.find((q) => q.topicId === topic.id);
+                  const topicQuiz =
+                    quizzesList.find((q) => q.topicId === topic.id && !q.lessonId) ||
+                    quizzesList.find((q) => q.topicId === topic.id);
                   const isQuizPassed = topicQuiz ? passedQuizSet.has(topicQuiz.id) : false;
                   const quizScore = topicQuiz ? quizBestScores.get(topicQuiz.id) : null;
 

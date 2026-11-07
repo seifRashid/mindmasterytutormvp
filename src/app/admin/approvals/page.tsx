@@ -2,12 +2,22 @@ import { Navbar } from "@/components/layout/Navbar";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { getSession } from "@/lib/auth";
 import { getUsers } from "@/lib/user-store";
-import { INITIAL_CLASSES } from "@/lib/mock-data";
+import { db } from "@/db";
+import { classes as dbClasses } from "@/db/schema";
 import { StudentApprovalsDashboard } from "@/components/admin/StudentApprovalsDashboard";
+
+export const dynamic = "force-dynamic";
 
 export default async function AdminApprovalsPage() {
   const session = await getSession();
   const dbUsers = await getUsers();
+  const classesRows = await db.select().from(dbClasses).orderBy(dbClasses.name);
+  const classesList = classesRows.map((c) => ({
+    id: c.id,
+    name: c.name,
+    slug: c.slug,
+    createdAt: c.createdAt.toISOString(),
+  }));
 
   return (
     <div className="min-h-screen bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-white flex flex-col">
@@ -31,7 +41,7 @@ export default async function AdminApprovalsPage() {
 
           <StudentApprovalsDashboard
             initialUsers={dbUsers}
-            classes={INITIAL_CLASSES}
+            classes={classesList}
             role="admin"
           />
         </main>
